@@ -1,5 +1,6 @@
 // src/pages/Stock.tsx
-import React, { useEffect, useState } from 'react';
+
+import { useState, useEffect } from 'react';
 import { fetchStockSummary } from '../lib/api';
 
 type Row = {
@@ -99,9 +100,8 @@ export default function StockPage() {
                   {x.TOTAL_OUT}
                 </td>
                 <td
-                  className={`border px-3 py-2 text-center font-semibold ${
-                    x.BALANCE < 0 ? 'text-red-600' : 'text-green-700'
-                  }`}
+                  className={`border px-3 py-2 text-center font-semibold ${x.BALANCE < 0 ? 'text-red-600' : 'text-green-700'
+                    }`}
                 >
                   {x.BALANCE}
                 </td>

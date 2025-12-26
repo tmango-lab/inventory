@@ -1,7 +1,7 @@
 // src/pages/ReturnItem.tsx
-import React, { useState, useEffect } from 'react';
-import { Button, Input, Select, Textarea } from '../components/UI';
-import { getBorrowedList, returnItem, BorrowedItem } from '../lib/api';
+import { useState, useEffect } from 'react';
+import { Button, Input } from '../components/UI';
+import { getBorrowedList, returnItem, type BorrowedItem } from '../lib/api';
 
 const ReturnItem: React.FC = () => {
     const [list, setList] = useState<BorrowedItem[]>([]);
