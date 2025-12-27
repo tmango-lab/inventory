@@ -1,8 +1,8 @@
 // src/lib/api.ts
-const SCRIPT_URL = import.meta.env.VITE_API_URL;
-const API_KEY = import.meta.env.VITE_API_KEY;
 export const API_URL =
   "https://script.google.com/macros/s/AKfycbxUiDhkR6Q4oID5AnC2FAuMg9NAXfRtfX2IMNaXa1RH2DIjO2G_WJakImYbJ2Mvuldn/exec";
+const SCRIPT_URL = import.meta.env.VITE_API_URL || API_URL;
+const API_KEY = import.meta.env.VITE_API_KEY;
 
 
 if (!SCRIPT_URL || !API_KEY) {
