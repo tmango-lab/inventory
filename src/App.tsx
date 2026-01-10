@@ -7,8 +7,7 @@ import ReceiveIn from './pages/ReceiveIn';
 import IssueOut from './pages/IssueOut';
 import ReturnItem from './pages/ReturnItem';
 import StockPage from './pages/Stock';
-import ReceiveHistoryPage from './pages/ReceiveHistory';
-import OutHistoryPage from './pages/OutHistory';
+import HistoryPage from './pages/History';
 import InventorySearchAndMap from './pages/Map';
 
 function App() {
@@ -66,28 +65,15 @@ function App() {
         }
       />
 
-      {/* หน้า ประวัติรับเข้า */}
+      {/* หน้า ประวัติรวม */}
       <Route
-        path="/receive-history"
+        path="/history"
         element={
           <MainLayout
-            title="ประวัติรับเข้า"
-            subtitle="ดูรายการรับเข้าย้อนหลัง พร้อมรูปประกอบ"
+            title="ประวัติการทำรายการ"
+            subtitle="รายการรับเข้า เบิก และคืน ทั้งหมด"
           >
-            <ReceiveHistoryPage />
-          </MainLayout>
-        }
-      />
-
-      {/* หน้า ประวัติ เบิก / คืน / จำหน่าย */}
-      <Route
-        path="/out-history"
-        element={
-          <MainLayout
-            title="ประวัติเบิก/จำหน่าย"
-            subtitle="รายการเบิกออก คืน และจำหน่ายย้อนหลัง"
-          >
-            <OutHistoryPage />
+            <HistoryPage />
           </MainLayout>
         }
       />

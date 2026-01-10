@@ -13,8 +13,7 @@ const NAV_ITEMS = [
   { to: '/issue-out', label: 'เบิกสินค้า' },
   { to: '/return', label: 'คืนสินค้า' }, // เพิ่มเมนู
   { to: '/stock', label: 'สต็อกคงเหลือ' },
-  { to: '/receive-history', label: 'ประวัติรับเข้า' },
-  { to: '/out-history', label: 'ประวัติเบิก/จำหน่าย' },
+  { to: '/history', label: 'ประวัติ' },
   { to: '/map', label: 'แผนผังคลัง' },
 ];
 

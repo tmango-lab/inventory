@@ -260,10 +260,14 @@ export default function InventorySearchAndMap() {
       }>();
 
       // Process IN
+      // Process IN
       receiptsData.items.forEach((item: any) => {
-        if (!item.name || !item.zone || item.channel == null) return;
+        // DB column is 'product_name', not 'name'
+        const pName = item.product_name || item.name;
+        if (!pName || !item.zone || item.channel == null) return;
+
         const channelStr = String(item.channel); // Convert to string for consistency
-        const key = `${item.name.trim()}|${item.zone}|${channelStr}`;
+        const key = `${pName.trim()}|${item.zone}|${channelStr}`;
         const existing = stockMap.get(key);
         const qty = Number(item.qty) || 0;
 
@@ -271,7 +275,7 @@ export default function InventorySearchAndMap() {
           existing.qty += qty;
         } else {
           stockMap.set(key, {
-            name: item.name.trim(),
+            name: pName.trim(),
             zone: item.zone,
             channel: channelStr,
             qty: qty,
@@ -300,6 +304,9 @@ export default function InventorySearchAndMap() {
           });
         }
       });
+
+      console.log('StockMap Size:', stockMap.size);
+      console.log('StockMap Entries:', Array.from(stockMap.entries()));
 
       // 3. Group by Product Name
       const productMap = new Map<string, Product>();
