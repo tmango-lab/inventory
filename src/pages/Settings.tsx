@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Button, Input, Select, Badge } from '../components/UI';
+import { Button, Input } from '../components/UI';
 import {
     getShelfConfigs,
     upsertShelfConfig,
@@ -17,8 +17,8 @@ export default function SettingsPage() {
             <div className="flex gap-4 border-b pb-2">
                 <button
                     className={`pb-2 text-sm font-medium transition-colors ${activeTab === 'shelf'
-                            ? 'border-b-2 border-blue-600 text-blue-600'
-                            : 'text-gray-500 hover:text-gray-700'
+                        ? 'border-b-2 border-blue-600 text-blue-600'
+                        : 'text-gray-500 hover:text-gray-700'
                         }`}
                     onClick={() => setActiveTab('shelf')}
                 >
@@ -26,8 +26,8 @@ export default function SettingsPage() {
                 </button>
                 <button
                     className={`pb-2 text-sm font-medium transition-colors ${activeTab === 'product'
-                            ? 'border-b-2 border-blue-600 text-blue-600'
-                            : 'text-gray-500 hover:text-gray-700'
+                        ? 'border-b-2 border-blue-600 text-blue-600'
+                        : 'text-gray-500 hover:text-gray-700'
                         }`}
                     onClick={() => setActiveTab('product')}
                 >
@@ -170,7 +170,7 @@ function ShelfTab() {
 function ProductTab() {
     const [products, setProducts] = useState<any[]>([]);
     const [search, setSearch] = useState('');
-    const [loading, setLoading] = useState(false);
+
     const [editingItem, setEditingItem] = useState<any | null>(null);
 
     useEffect(() => {
@@ -178,10 +178,10 @@ function ProductTab() {
     }, []);
 
     async function fetchProducts() {
-        setLoading(true);
+
         const { data } = await supabase.from('products').select('*').order('name');
         setProducts(data || []);
-        setLoading(false);
+
     }
 
     const filtered = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
