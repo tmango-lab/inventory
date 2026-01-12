@@ -4,8 +4,6 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { MainLayout } from './layouts/MainLayout';
 
 import ReceiveIn from './pages/ReceiveIn';
-import IssueOut from './pages/IssueOut';
-import ReturnItem from './pages/ReturnItem';
 import StockPage from './pages/Stock';
 import HistoryPage from './pages/History';
 import InventorySearchAndMap from './pages/Map';
@@ -22,32 +20,6 @@ function App() {
             subtitle="บันทึกรายการรับเข้าสินค้าเข้าคลัง"
           >
             <ReceiveIn />
-          </MainLayout>
-        }
-      />
-
-      {/* หน้า เบิกสินค้า */}
-      <Route
-        path="/issue-out"
-        element={
-          <MainLayout
-            title="เบิกสินค้า"
-            subtitle="บันทึกรายการเบิกออกจากคลัง"
-          >
-            <IssueOut />
-          </MainLayout>
-        }
-      />
-
-      {/* หน้า คืนสินค้า */}
-      <Route
-        path="/return"
-        element={
-          <MainLayout
-            title="คืนสินค้า"
-            subtitle="รายการของที่ยืมไปและแจ้งคืน"
-          >
-            <ReturnItem />
           </MainLayout>
         }
       />
@@ -78,13 +50,13 @@ function App() {
         }
       />
 
-      {/* หน้า แผนผังคลัง */}
+      {/* หน้า ค้นหา */}
       <Route
-        path="/map"
+        path="/search"
         element={
           <MainLayout
-            title="แผนผังคลัง"
-            subtitle="ค้นหาสินค้าและดูตำแหน่งโซน/ช่อง"
+            title="ค้นหา"
+            subtitle="ค้นหาสินค้าและทำรายการเบิก/ยืม"
           >
             <InventorySearchAndMap />
           </MainLayout>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { fetchStockSummary } from '../lib/api';
+import { useNavigate } from 'react-router-dom';
 
 type Row = {
   ITEM_NAME: string;
@@ -11,14 +12,13 @@ type Row = {
   BALANCE: number;
   LAST_IN_DATE: string | null;
   LAST_OUT_DATE: string | null;
-  ZONE?: string | null;
-  CHANNEL?: string | null;
 };
 
 export default function StockPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [filter, setFilter] = useState('');
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     load();
@@ -28,8 +28,32 @@ export default function StockPage() {
     try {
       setLoading(true);
       const data = await fetchStockSummary();
-      data.sort((a, b) => b.BALANCE - a.BALANCE);
-      setRows(data);
+
+      // Simplify: Aggregate unique items (though view might already be unique per item if grouping by item only)
+      // The current view 'fetchStockSummary' returns aggregated data by item_name from the view.
+      // Assuming 'stock_summary' view groups by item_name.
+      // If it groups by zone/channel as well, we need to aggregate here.
+      // Inspecting api.ts: `fetchStockSummary` maps to `StockRow` which has ZONE/CHANNEL optional.
+      // Wait, if the DB view splits by Zone, we get multiple rows per item.
+      // We want ONE row per item with TOTAL balance.
+
+      // Let's manually aggregate just in case the API returns split rows.
+      const map = new Map<string, Row>();
+      data.forEach((r: any) => {
+        const existing = map.get(r.ITEM_NAME);
+        if (existing) {
+          existing.TOTAL_IN += r.TOTAL_IN;
+          existing.TOTAL_OUT += r.TOTAL_OUT;
+          existing.BALANCE += r.BALANCE;
+          // Dates: keep latest?
+        } else {
+          map.set(r.ITEM_NAME, { ...r });
+        }
+      });
+
+      const aggregated = Array.from(map.values());
+      aggregated.sort((a, b) => b.BALANCE - a.BALANCE);
+      setRows(aggregated);
     } catch (err: any) {
       alert(err.message || 'โหลดข้อมูลผิดพลาด');
     } finally {
@@ -40,11 +64,7 @@ export default function StockPage() {
   const filtered = rows.filter((x) => {
     const kw = filter.toLowerCase();
     if (!kw) return true;
-    return (
-      x.ITEM_NAME.toLowerCase().includes(kw) ||
-      (x.ZONE || '').toLowerCase().includes(kw) ||
-      (x.CHANNEL || '').toLowerCase().includes(kw)
-    );
+    return x.ITEM_NAME.toLowerCase().includes(kw);
   });
 
   return (
@@ -52,7 +72,7 @@ export default function StockPage() {
       {/* ช่องค้นหา */}
       <div className="flex flex-col gap-2">
         <label className="text-sm text-gray-700">
-          ค้นหา ชื่อสินค้า / โซน / ช่อง
+          ค้นหาชื่อสินค้า (ดูรายละเอียดรายโซน ให้คลิกที่สินค้า)
         </label>
         <input
           className="border rounded-md px-3 py-2 w-full"
@@ -67,49 +87,31 @@ export default function StockPage() {
       )}
 
       {/* ตาราง */}
-      <div className="overflow-auto">
-        <table className="min-w-full border mt-2 bg-white">
+      <div className="overflow-auto rounded-lg border">
+        <table className="min-w-full bg-white">
           <thead className="bg-gray-100 text-gray-700 text-sm">
             <tr>
-              <th className="border px-3 py-2 text-left">สินค้า</th>
-              <th className="border px-3 py-2 text-center">โซน</th>
-              <th className="border px-3 py-2 text-center">ช่อง</th>
-              <th className="border px-3 py-2">หน่วย</th>
-              <th className="border px-3 py-2">รับเข้า</th>
-              <th className="border px-3 py-2">เบิกออก</th>
-              <th className="border px-3 py-2">คงเหลือ</th>
-              <th className="border px-3 py-2">รับเข้าล่าสุด</th>
-              <th className="border px-3 py-2">เบิกล่าสุด</th>
+              <th className="px-4 py-3 text-left">สินค้า</th>
+              <th className="px-4 py-3 text-center">หน่วย</th>
+              <th className="px-4 py-3 text-center">รับเข้าทั้งหมด</th>
+              <th className="px-4 py-3 text-center">ออกทั้งหมด</th>
+              <th className="px-4 py-3 text-center">คงเหลือรวม</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-gray-200">
             {filtered.map((x, idx) => (
-              <tr key={idx} className="text-sm">
-                <td className="border px-3 py-2">{x.ITEM_NAME}</td>
-                <td className="border px-3 py-2 text-center">
-                  {x.ZONE || '-'}
-                </td>
-                <td className="border px-3 py-2 text-center">
-                  {x.CHANNEL || '-'}
-                </td>
-                <td className="border px-3 py-2 text-center">{x.UNIT}</td>
-                <td className="border px-3 py-2 text-center">
-                  {x.TOTAL_IN}
-                </td>
-                <td className="border px-3 py-2 text-center">
-                  {x.TOTAL_OUT}
-                </td>
-                <td
-                  className={`border px-3 py-2 text-center font-semibold ${x.BALANCE < 0 ? 'text-red-600' : 'text-green-700'
-                    }`}
-                >
+              <tr
+                key={idx}
+                className="text-sm hover:bg-blue-50 cursor-pointer transition-colors"
+                onClick={() => navigate(`/search?q=${encodeURIComponent(x.ITEM_NAME)}`)}
+                title="คลิกเพื่อดูรายละเอียดตำแหน่งเก็บ"
+              >
+                <td className="px-4 py-3 font-medium text-blue-600">{x.ITEM_NAME}</td>
+                <td className="px-4 py-3 text-center text-gray-500">{x.UNIT}</td>
+                <td className="px-4 py-3 text-center text-gray-500">{x.TOTAL_IN}</td>
+                <td className="px-4 py-3 text-center text-gray-500">{x.TOTAL_OUT}</td>
+                <td className={`px-4 py-3 text-center font-bold text-lg ${x.BALANCE <= 0 ? 'text-red-500' : 'text-green-600'}`}>
                   {x.BALANCE}
-                </td>
-                <td className="border px-3 py-2 text-center">
-                  {x.LAST_IN_DATE ? x.LAST_IN_DATE.slice(0, 10) : '-'}
-                </td>
-                <td className="border px-3 py-2 text-center">
-                  {x.LAST_OUT_DATE ? x.LAST_OUT_DATE.slice(0, 10) : '-'}
                 </td>
               </tr>
             ))}
@@ -117,8 +119,8 @@ export default function StockPage() {
             {filtered.length === 0 && !loading && (
               <tr>
                 <td
-                  className="px-3 py-4 text-center text-gray-500"
-                  colSpan={9}
+                  className="px-4 py-6 text-center text-gray-500"
+                  colSpan={5}
                 >
                   ไม่พบรายการ
                 </td>

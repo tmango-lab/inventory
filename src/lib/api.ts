@@ -54,6 +54,12 @@ export type BorrowedItem = {
   qtyLeft: number;
   requestBy: string;
   remark: string;
+  zone?: string;
+  channel?: string;
+  // Extra fields for UI
+  lastReturnDate?: string;
+  returnerName?: string;
+  lastReturnRemark?: string;
 };
 
 // =========================
@@ -61,22 +67,22 @@ export type BorrowedItem = {
 // =========================
 
 export async function uploadReceive(payload: any) {
-  // Payload: { name, qty, unit, zone, channel, detail, images: [...] }
+  // Payload: { name, qty, unit, zone, channel, detail, images: [...], tags: string[] }
   // We map this to 'transactions' table with type='IN'
-
-  // 1. Ensure Product Exists (Optional, but good practice)
-  // For now, we assume product exists OR we just insert transaction and let DB handle/ignore FK?
-  // Our SQL schema enforces FK on product_name. So we must insert Product first if new.
 
   try {
     // Upsert product (if name doesn't exist, create it)
+    // Update: Add 'tags' to products table. Assumes column 'tags' (text[]) exists or we use 'details' or similar.
+    // Let's assume we added 'tags' column of type text[] or text.
+    // We will coerce payload.tags (array of strings) to PostgreSQL array or just JSONB.
     const { error: prodError } = await supabase
       .from('products')
       .upsert(
         {
           name: payload.name,
           unit: payload.unit,
-          category: payload.zone // Use zone as category for now
+          category: payload.zone, // Use zone as category for now
+          tags: payload.tags // Array of strings
         },
         { onConflict: 'name' }
       );
@@ -96,6 +102,7 @@ export async function uploadReceive(payload: any) {
         remark: payload.detail,
         images: payload.images, // Storing JSONB
         status: 'COMPLETED'
+        // We don't store tags in transaction, only in product master
       });
 
     if (transError) throw new Error(transError.message);
@@ -105,6 +112,26 @@ export async function uploadReceive(payload: any) {
     console.error('uploadReceive Error:', err);
     return { ok: false, error: err.message };
   }
+}
+
+// =========================
+// SIMILARITY CHECK
+// =========================
+
+export async function checkSimilarProducts(name: string) {
+  // Call the Postgres RPC function
+  // We use a threshold of 0.3 as a baseline (can be tuned)
+  const { data, error } = await supabase.rpc('check_similar_products', {
+    search_term: name,
+    threshold: 0.3
+  });
+
+  if (error) {
+    console.error("Error checking similar products:", error);
+    return [];
+  }
+
+  return data || [];
 }
 
 export async function listReceipts({ search = "", page = 1, limit = 20 }: ListReceiptsParams) {
@@ -261,11 +288,6 @@ export async function createOut(payload: OutFormPayload) {
 
 export async function getBorrowedList(): Promise<BorrowedItem[]> {
   // Fetch transactions where type='BORROW'
-  // Logic: We need to calculate how much is left.
-  // We can fetch all BORROW transactions, and for each, fetch related RETURN transactions.
-
-  // For better performance, we should do this in SQL View, but for now let's do JS logic map.
-
   const { data: borrows, error } = await supabase
     .from('transactions')
     .select(`
@@ -273,42 +295,59 @@ export async function getBorrowedList(): Promise<BorrowedItem[]> {
       returns:transactions!parent_id(*)
     `)
     .eq('type', 'BORROW')
-    .neq('status', 'RETURNED') // Only active borrows
     .order('created_at', { ascending: false });
 
   if (error) throw new Error(error.message);
 
   const items: BorrowedItem[] = (borrows || []).map((b: any) => {
     // Calculate returned amount
-    // 'returns' is the joined children transactions
-    const returnedSum = (b.returns || [])
+    const returnsList = (b.returns || []) as any[];
+
+    const returnedSum = returnsList
       .filter((r: any) => r.type === 'RETURN')
       .reduce((sum: number, r: any) => sum + r.qty, 0);
 
-    const lostSum = 0; // TODO: Implement LOST logic if needed
-    const left = b.qty - returnedSum;
+    const lostSum = returnsList
+      .filter((r: any) => r.type === 'LOSS')
+      .reduce((sum: number, r: any) => sum + r.qty, 0);
+
+    const left = b.qty - returnedSum - lostSum;
+
+    // Get latest return/loss info
+    // Sort descending by date
+    const lastAction = returnsList
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
 
     return {
       outId: b.id,
-      date: b.created_at,
+      date: b.created_at, // Borrow Date
       itemName: b.product_name,
       qtyKey: b.qty,
       qtyReturned: returnedSum,
       qtyLost: lostSum,
       qtyLeft: left,
-      requestBy: b.request_by,
-      remark: b.remark
+      requestBy: b.request_by, // Borrowed By
+      remark: b.remark, // Borrow Remark
+
+      // Location Info
+      zone: b.zone,
+      channel: b.channel,
+
+      // New Fields from latest return action
+      lastReturnDate: lastAction ? lastAction.created_at : undefined,
+      returnerName: lastAction ? lastAction.request_by : undefined,
+      lastReturnRemark: lastAction ? lastAction.remark : undefined
     };
   });
 
-  // Filter out fully returned items if they somehow slipped through status check
-  return items.filter(i => i.qtyLeft > 0);
+  return items;
 }
 
 export async function returnItem(payload: {
   outId: string;
   returnQty: number;
   lostQty: number;
+  returnerName: string; // New field
   reason?: string;
 }) {
   // 1. Fetch original borrow to get details
@@ -320,6 +359,20 @@ export async function returnItem(payload: {
 
   if (fetchError || !original) throw new Error('Borrow Record not found');
 
+  // Validate quantities
+  const { data: previousReturns } = await supabase
+    .from('transactions')
+    .select('qty')
+    .eq('parent_id', payload.outId)
+    .in('type', ['RETURN', 'LOSS']);
+
+  const returnedAlready = (previousReturns || []).reduce((acc, r) => acc + r.qty, 0);
+  const remaining = original.qty - returnedAlready;
+
+  if (payload.returnQty + payload.lostQty > remaining) {
+    throw new Error(`Exceeds remaining borrowed amount (${remaining} ${original.unit})`);
+  }
+
   // 2. Insert RETURN transaction
   if (payload.returnQty > 0) {
     const { error: retError } = await supabase.from('transactions').insert({
@@ -328,31 +381,38 @@ export async function returnItem(payload: {
       qty: payload.returnQty,
       unit: original.unit,
       parent_id: original.id,
-      request_by: original.request_by,
-      remark: `Return: ${payload.reason || ''}`,
-      status: 'COMPLETED'
+      request_by: payload.returnerName,
+      remark: payload.reason || 'Returned',
+      status: 'COMPLETED',
+      // CRITICAL FIX: Save Zone/Channel so Map calculation works
+      zone: original.zone,
+      channel: original.channel
     });
     if (retError) throw new Error(retError.message);
   }
 
-  // 3. Mark original as RETURNED if fully returned?
-  // We need to check total returned.
-  // Ideally, use a Database Trigger. For now, client-side check is okay-ish but race-condition prone.
-  // We'll update the status to 'RETURNED' if we think it's done. 
-  // Or just leave it as 'PENDING_RETURN' and rely on calculation. 
-  // Let's update it for UI filtering.
+  // 3. Insert LOSS transaction
+  if (payload.lostQty > 0) {
+    const { error: lossError } = await supabase.from('transactions').insert({
+      type: 'LOSS',
+      product_name: original.product_name,
+      qty: payload.lostQty,
+      unit: original.unit,
+      parent_id: original.id,
+      request_by: payload.returnerName,
+      remark: payload.reason || 'No reason specified',
+      status: 'COMPLETED',
+      // CRITICAL FIX: Save Zone/Channel (though Loss doesn't return to stock, consistent data is good)
+      zone: original.zone,
+      channel: original.channel
+    });
+    if (lossError) throw new Error(lossError.message);
+  }
 
-  const { data: returns } = await supabase
-    .from('transactions')
-    .select('qty')
-    .eq('parent_id', payload.outId)
-    .eq('type', 'RETURN');
+  // 4. Update parent status if fully resolved
+  const totalProcessed = returnedAlready + payload.returnQty + payload.lostQty;
 
-  const totalReturned = (returns || []).reduce((mockAccumulator, r) => mockAccumulator + r.qty, 0) + payload.returnQty; // + current one (Wait, if I inserted it above, it should be in query? No, consistency.)
-
-  const isFullyReturned = totalReturned >= original.qty;
-
-  if (isFullyReturned) {
+  if (totalProcessed >= original.qty) {
     await supabase
       .from('transactions')
       .update({ status: 'RETURNED' })

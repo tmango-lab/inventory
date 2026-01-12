@@ -10,11 +10,9 @@ type MainLayoutProps = {
 
 const NAV_ITEMS = [
   { to: '/receive', label: 'รับเข้า' },
-  { to: '/issue-out', label: 'เบิกสินค้า' },
-  { to: '/return', label: 'คืนสินค้า' }, // เพิ่มเมนู
   { to: '/stock', label: 'สต็อกคงเหลือ' },
+  { to: '/search', label: 'ค้นหา' }, // Changed from map
   { to: '/history', label: 'ประวัติ' },
-  { to: '/map', label: 'แผนผังคลัง' },
 ];
 
 export function MainLayout({ title, subtitle, children }: MainLayoutProps) {
@@ -34,7 +32,7 @@ export function MainLayout({ title, subtitle, children }: MainLayoutProps) {
                 T-MANGO – ระบบสต็อก
               </h1>
               <p className="text-xs text-slate-500">
-                รับเข้า · เบิก · สต็อกคงเหลือ · แผนผังคลัง · ประวัติ
+                รับเข้า · สต็อกคงเหลือ · ค้นหา · ประวัติ
               </p>
             </div>
           </div>
@@ -62,10 +60,10 @@ export function MainLayout({ title, subtitle, children }: MainLayoutProps) {
             })}
           </div>
         </nav>
-      </header>
+      </header >
 
       {/* Page content */}
-      <main className="max-w-6xl mx-auto px-4 py-5">
+      < main className="max-w-6xl mx-auto px-4 py-5" >
         {(title || subtitle) && (
           <div className="mb-4">
             {title && (
@@ -77,12 +75,13 @@ export function MainLayout({ title, subtitle, children }: MainLayoutProps) {
               <p className="text-sm text-slate-500 mt-1">{subtitle}</p>
             )}
           </div>
-        )}
+        )
+        }
 
         <div className="bg-white rounded-xl shadow-sm border p-4">
           {children}
         </div>
-      </main>
-    </div>
+      </main >
+    </div >
   )
 }

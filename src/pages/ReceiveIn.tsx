@@ -2,7 +2,8 @@
 import React, { useRef, useState } from 'react';
 import { Button, Input, Select, Textarea, Badge } from '../components/UI';
 import { processFiles, revokeObjectUrls } from '../lib/imaging';
-import { uploadReceive } from '../lib/api';
+import { uploadReceive, checkSimilarProducts } from '../lib/api';
+import { SimilarItemModal, type ProductCandidate } from '../components/SimilarItemModal';
 
 // ---------- Config ----------
 const ZONES = ['A', 'B', 'C'] as const;
@@ -18,6 +19,7 @@ type ReceiveForm = {
   channel: '' | string;
   detail: string;
   images: File[];
+  tags: string;
 };
 
 // ---------- Component ----------
@@ -30,11 +32,13 @@ export default function ReceiveIn() {
     channel: '',
     detail: '',
     images: [],
+    tags: '', // comma separated string
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [previews, setPreviews] = useState<string[]>([]);
+  const [similarityMatches, setSimilarityMatches] = useState<ProductCandidate[]>([]);
 
   React.useEffect(() => {
     if (!form.images || form.images.length === 0) {
@@ -92,8 +96,8 @@ export default function ReceiveIn() {
             p.file instanceof Blob
               ? p.file
               : p.blob instanceof Blob
-              ? p.blob
-              : (form.images[i] as Blob);
+                ? p.blob
+                : (form.images[i] as Blob);
 
           const base64 = await fileToBase64(blob);
           const guessName =
@@ -120,6 +124,7 @@ export default function ReceiveIn() {
         channel: form.channel,
         detail: form.detail || '',
         images,
+        tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : []
       };
 
       const res = await uploadReceive(payload);
@@ -134,6 +139,7 @@ export default function ReceiveIn() {
           channel: '',
           detail: '',
           images: [],
+          tags: ''
         });
         setErrors({});
       } else {
@@ -162,6 +168,36 @@ export default function ReceiveIn() {
     e.target.value = '';
   };
 
+  const handleCheckSimilarity = async () => {
+    const trimmed = form.name.trim();
+    if (!trimmed || trimmed.length < 2) return;
+
+    // Check similarity
+    const matches = await checkSimilarProducts(trimmed);
+
+    // Filter out if the user typed EXACTLY the same name (case-insensitive) as the top match?
+    // Actually, if it's exact match, we STILL want to show it because it might be a DUPLICATE entry the user didn't intend.
+    // But if the user clicks "Force Create" (which means ignore), we should respect that.
+    // For now, always show if matches found.
+    if (matches.length > 0) {
+      setSimilarityMatches(matches);
+    }
+  };
+
+  const handleUseExisting = (item: ProductCandidate) => {
+    setField('name', item.product_name);
+    setSimilarityMatches([]);
+  };
+
+  const handleForceCreate = () => {
+    setSimilarityMatches([]);
+  };
+
+  const handleCancelCheck = () => {
+    setSimilarityMatches([]);
+    // Optionally focus back to input if needed
+  };
+
   // ---------- UI ----------
   return (
     <div className="space-y-5">
@@ -172,6 +208,7 @@ export default function ReceiveIn() {
           placeholder="เช่น สายไฟ 2x2.5mm 90m"
           value={form.name}
           onChange={(e) => setField('name', e.target.value)}
+          onBlur={handleCheckSimilarity}
         />
         {errors.name && <div className="text-xs text-red-600">{errors.name}</div>}
       </div>
@@ -261,6 +298,17 @@ export default function ReceiveIn() {
         />
       </div>
 
+      {/* Tags */}
+      <div className="space-y-1">
+        <label className="text-sm font-medium text-gray-700">Tags (คำค้นหา)</label>
+        <Input
+          placeholder="เช่น เครื่องเขียน, Office, 2024 (คั่นด้วยคอมม่า)"
+          value={form.tags}
+          onChange={(e) => setField('tags', e.target.value)}
+        />
+        <div className="text-xs text-gray-400">ระบุคำที่ต้องการให้ค้นเจอได้ง่ายๆ</div>
+      </div>
+
       {/* แนบรูป */}
       <div className="space-y-2">
         <label className="text-sm font-medium text-gray-700">รูปภาพสินค้า</label>
@@ -323,6 +371,7 @@ export default function ReceiveIn() {
               channel: '',
               detail: '',
               images: [],
+              tags: ''
             })
           }
         >
@@ -331,6 +380,15 @@ export default function ReceiveIn() {
       </div>
 
       <p className="text-xs text-gray-500 mt-6">Day 5 demo – ยังไม่เชื่อม Backend</p>
+
+      {similarityMatches.length > 0 && (
+        <SimilarItemModal
+          matches={similarityMatches}
+          onUseExisting={handleUseExisting}
+          onForceCreate={handleForceCreate}
+          onCancel={handleCancelCheck}
+        />
+      )}
     </div>
   );
 }
