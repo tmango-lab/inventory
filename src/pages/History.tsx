@@ -189,9 +189,8 @@ function ReturnModal({
                     <div>
                         <label className="block text-sm font-medium mb-1">หมายเหตุ / สาเหตุที่คืนไม่ครบ</label>
                         <Textarea
-                            value={reason}
                             onChange={(e) => setReason(e.target.value)}
-                            placeholder={lostQty > 0 ? "ระบุเหตุผลที่หาย/เสียหาย..." : "หมายเหตุเพิ่มเติม (ถ้ามี)"}
+                            placeholder={Number(lostQty) > 0 ? "ระบุเหตุผลที่หาย/เสียหาย..." : "หมายเหตุเพิ่มเติม (ถ้ามี)"}
                             rows={2}
                         />
                     </div>

@@ -1,4 +1,3 @@
-import React from 'react';
 import { Button } from './UI';
 
 export type ProductCandidate = {
@@ -23,7 +22,7 @@ export function SimilarItemModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        
+
         {/* Header */}
         <div className="bg-yellow-50 p-4 border-b border-yellow-100 flex gap-3 items-start">
           <div className="p-2 bg-yellow-100 text-yellow-700 rounded-full shrink-0">
@@ -42,8 +41,8 @@ export function SimilarItemModal({
         {/* List */}
         <div className="p-4 max-h-[60vh] overflow-y-auto space-y-2">
           {matches.map((item) => (
-            <div 
-              key={item.id} 
+            <div
+              key={item.id}
               className="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition"
             >
               <div>
@@ -54,8 +53,8 @@ export function SimilarItemModal({
                   </span>
                 </div>
               </div>
-              <Button 
-                variant="secondary" 
+              <Button
+                variant="secondary"
                 onClick={() => onUseExisting(item)}
                 className="shrink-0 text-sm"
               >
@@ -67,13 +66,13 @@ export function SimilarItemModal({
 
         {/* Footer */}
         <div className="p-4 bg-gray-50 border-t flex justify-between items-center gap-3">
-          <button 
+          <button
             onClick={onCancel}
             className="text-sm text-gray-500 hover:text-gray-700 underline underline-offset-2"
           >
             ยกเลิก (แก้ไขชื่อ)
           </button>
-          
+
           <Button variant="ghost" onClick={onForceCreate} className="text-red-600 hover:bg-red-50 border-red-100">
             ยืนยันสร้างใหม่
           </Button>
