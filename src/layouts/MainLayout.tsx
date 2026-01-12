@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { to: '/stock', label: 'สต็อกคงเหลือ' },
   { to: '/search', label: 'ค้นหา' }, // Changed from map
   { to: '/history', label: 'ประวัติ' },
+  { to: '/settings', label: 'ตั้งค่า' },
 ];
 
 export function MainLayout({ title, subtitle, children }: MainLayoutProps) {

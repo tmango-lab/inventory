@@ -7,6 +7,7 @@ import ReceiveIn from './pages/ReceiveIn';
 import StockPage from './pages/Stock';
 import HistoryPage from './pages/History';
 import InventorySearchAndMap from './pages/Map';
+import SettingsPage from './pages/Settings';
 
 function App() {
   return (
@@ -59,6 +60,19 @@ function App() {
             subtitle="ค้นหาสินค้าและทำรายการเบิก/ยืม"
           >
             <InventorySearchAndMap />
+          </MainLayout>
+        }
+      />
+
+      {/* หน้า ตั้งค่า */}
+      <Route
+        path="/settings"
+        element={
+          <MainLayout
+            title="ตั้งค่าระบบ"
+            subtitle="จัดการชั้นวางและแก้ไขข้อมูลสินค้า"
+          >
+            <SettingsPage />
           </MainLayout>
         }
       />

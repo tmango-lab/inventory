@@ -26,7 +26,7 @@ create table transactions (
   created_at timestamptz default now(),
   type text not null, -- 'IN', 'OUT', 'BORROW', 'RETURN', 'CONSUME'
   
-  product_name text not null references products(name),
+  product_name text not null references products(name) on update cascade,
   qty int not null,
   unit text,
   

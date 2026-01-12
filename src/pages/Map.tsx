@@ -166,20 +166,40 @@ export type Product = {
   tags?: string[];
 };
 
-// ช่อง 1–25
-const CHANNELS = Array.from({ length: 25 }, (_, i) => String(i + 1));
+// ช่อง 1–25 (Dynamic now)
+// const CHANNELS = Array.from({ length: 25 }, (_, i) => String(i + 1));
 
 // --- Rack Map (single zone) ---
 function RackMap({ zone, highlight }: { zone: string; highlight?: string }) {
+  const [config, setConfig] = useState<{ floors: number, slots: number } | null>(null);
+
+  useEffect(() => {
+    supabase.from('shelf_configs').select('*').eq('zone', zone).single()
+      .then(({ data }) => {
+        if (data) setConfig({ floors: data.floors, slots: data.slots_per_floor });
+        else setConfig({ floors: 5, slots: 5 }); // Default fallback
+      });
+  }, [zone]);
+
+  const totalSlots = config ? config.floors * config.slots : 25;
+  const slotsPerFloor = config ? config.slots : 5;
+
+  // Create grid columns style
+  const gridStyle = {
+    gridTemplateColumns: `repeat(${slotsPerFloor}, minmax(0, 1fr))`
+  };
+
+  const channels = Array.from({ length: totalSlots }, (_, i) => String(i + 1));
+
   return (
     <Card className="mb-6">
       <CardContent>
         <div className="flex items-center justify-between mb-2">
           <h3 className="font-bold">โซน {zone}</h3>
-          <span className="text-xs text-gray-500">1–25 ช่อง</span>
+          <span className="text-xs text-gray-500">{totalSlots} ช่อง ({config?.floors} ชั้น x {config?.slots} ล็อค)</span>
         </div>
-        <div className="grid grid-cols-5 gap-2">
-          {CHANNELS.map((ch) => (
+        <div className="grid gap-2" style={gridStyle}>
+          {channels.map((ch) => (
             <div
               key={ch}
               className={`py-4 rounded-xl border text-center text-sm font-medium transition-colors ${highlight === ch

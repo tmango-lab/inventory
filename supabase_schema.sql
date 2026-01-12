@@ -15,7 +15,7 @@ create table if not exists transactions (
   type text not null, -- 'IN', 'OUT', 'BORROW', 'RETURN', 'CONSUME'
   
   -- Product Relation
-  product_name text not null references products(name), 
+  product_name text not null references products(name) on update cascade, 
   -- Note: Referencing 'name' is easier for migration. 
   -- ideally reference 'id', but UI sends 'name'.
 

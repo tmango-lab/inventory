@@ -421,3 +421,86 @@ export async function returnItem(payload: {
 
   return { ok: true, message: 'Returned successfully' };
 }
+
+// =========================
+// SHELF CONFIG
+// =========================
+
+export type ShelfConfig = {
+  zone: string;
+  floors: number;
+  slots_per_floor: number;
+};
+
+export async function getShelfConfigs(): Promise<ShelfConfig[]> {
+  const { data, error } = await supabase
+    .from('shelf_configs')
+    .select('*')
+    .order('zone');
+
+  // If table doesn't exist yet, return empty or default?
+  // Supabase throws error if table missing.
+  if (error) {
+    console.error('getShelfConfigs error:', error);
+    return [];
+  }
+
+  return (data || []).map((d: any) => ({
+    zone: d.zone,
+    floors: d.floors,
+    slots_per_floor: d.slots_per_floor
+  }));
+}
+
+export async function upsertShelfConfig(config: ShelfConfig) {
+  const { error } = await supabase
+    .from('shelf_configs')
+    .upsert({
+      zone: config.zone,
+      floors: config.floors,
+      slots_per_floor: config.slots_per_floor
+    });
+
+  if (error) throw new Error(error.message);
+  return { ok: true };
+}
+
+export async function deleteShelfConfig(zone: string) {
+  const { error } = await supabase
+    .from('shelf_configs')
+    .delete()
+    .eq('zone', zone);
+
+  if (error) throw new Error(error.message);
+  return { ok: true };
+}
+
+// =========================
+// PRODUCT MANAGEMENT
+// =========================
+
+export async function updateProduct(originalName: string, updates: { name?: string; unit?: string; tags?: string[] }) {
+  if (updates.name && updates.name !== originalName) {
+    const { data: existing } = await supabase.from('products').select('name').eq('name', updates.name).single();
+    if (existing) throw new Error(`Product name "${updates.name}" already exists.`);
+  }
+
+  const { error } = await supabase
+    .from('products')
+    .update({
+      ...(updates.name ? { name: updates.name } : {}),
+      ...(updates.unit ? { unit: updates.unit } : {}),
+      ...(updates.tags ? { tags: updates.tags } : {}),
+    })
+    .eq('name', originalName);
+
+  if (error) throw new Error(error.message);
+
+  if (updates.name && updates.name !== originalName) {
+    await supabase.from('transactions')
+      .update({ product_name: updates.name })
+      .eq('product_name', originalName);
+  }
+
+  return { ok: true };
+}

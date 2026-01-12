@@ -2,12 +2,11 @@
 import React, { useRef, useState } from 'react';
 import { Button, Input, Select, Textarea, Badge } from '../components/UI';
 import { processFiles, revokeObjectUrls } from '../lib/imaging';
-import { uploadReceive, checkSimilarProducts } from '../lib/api';
+import { uploadReceive, checkSimilarProducts, getShelfConfigs, type ShelfConfig } from '../lib/api';
 import { SimilarItemModal, type ProductCandidate } from '../components/SimilarItemModal';
 
 // ---------- Config ----------
-const ZONES = ['A', 'B', 'C'] as const;
-const CHANNELS = Array.from({ length: 25 }, (_, i) => String(i + 1));
+// const ZONES = ['A', 'B', 'C'] as const; // Removed static
 const QUICK_UNITS = ['ชิ้น', 'ใบ', 'กล่อง', 'แถว', 'แพ็ค'] as const;
 
 // ---------- Types ----------
@@ -15,8 +14,8 @@ type ReceiveForm = {
   name: string;
   unit: (typeof QUICK_UNITS)[number] | string;
   qty: number | '';
-  zone: '' | (typeof ZONES)[number];
-  channel: '' | string;
+  zone: string;
+  channel: string;
   detail: string;
   images: File[];
   tags: string;
@@ -39,6 +38,19 @@ export default function ReceiveIn() {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [previews, setPreviews] = useState<string[]>([]);
   const [similarityMatches, setSimilarityMatches] = useState<ProductCandidate[]>([]);
+
+  // Dynamic Shelves
+  const [shelves, setShelves] = useState<ShelfConfig[]>([]);
+
+  React.useEffect(() => {
+    getShelfConfigs().then(setShelves).catch(console.error);
+  }, []);
+
+  // Compute channels based on selected zone
+  const activeShelf = shelves.find(s => s.zone === form.zone);
+  const availableChannels = activeShelf
+    ? Array.from({ length: activeShelf.floors * activeShelf.slots_per_floor }, (_, i) => String(i + 1))
+    : [];
 
   React.useEffect(() => {
     if (!form.images || form.images.length === 0) {
@@ -259,12 +271,12 @@ export default function ReceiveIn() {
       {/* โซน + ช่อง */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1">
-          <label className="text-sm font-medium text-gray-700">โซน (A/B/C)</label>
+          <label className="text-sm font-medium text-gray-700">โซน</label>
           <Select value={form.zone} onChange={(e) => setField('zone', e.target.value as any)}>
             <option value="">— เลือกโซน —</option>
-            {ZONES.map((z) => (
-              <option key={z} value={z}>
-                {z}
+            {shelves.map((s) => (
+              <option key={s.zone} value={s.zone}>
+                {s.zone}
               </option>
             ))}
           </Select>
@@ -272,10 +284,10 @@ export default function ReceiveIn() {
         </div>
 
         <div className="space-y-1">
-          <label className="text-sm font-medium text-gray-700">ช่อง (1–25)</label>
+          <label className="text-sm font-medium text-gray-700">ช่อง {activeShelf ? `(1-${availableChannels.length})` : ''}</label>
           <Select value={form.channel} onChange={(e) => setField('channel', e.target.value)}>
             <option value="">— เลือกช่อง —</option>
-            {CHANNELS.map((c) => (
+            {availableChannels.map((c) => (
               <option key={c} value={c}>
                 {c}
               </option>
