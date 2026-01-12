@@ -417,7 +417,7 @@ const HistoryPage: React.FC = () => {
     return (
         <div className="space-y-4">
             {/* Tabs */}
-            <div className="flex bg-gray-100 p-1 rounded-lg w-fit overflow-x-auto">
+            <div className="flex bg-gray-100 p-1 rounded-lg w-fit max-w-full overflow-x-auto">
                 <button
                     onClick={() => setTab('ALL')}
                     className={`px-4 py-2 text-sm rounded-md whitespace-nowrap ${tab === 'ALL' ? 'bg-white shadow text-blue-600 font-bold' : 'text-gray-500'}`}
@@ -428,19 +428,19 @@ const HistoryPage: React.FC = () => {
                     onClick={() => setTab('IN')}
                     className={`px-4 py-2 text-sm rounded-md whitespace-nowrap ${tab === 'IN' ? 'bg-white shadow text-blue-600 font-bold' : 'text-gray-500'}`}
                 >
-                    ประวัติรับเข้า
+                    รับเข้า
                 </button>
                 <button
                     onClick={() => setTab('CONSUME')}
                     className={`px-4 py-2 text-sm rounded-md whitespace-nowrap ${tab === 'CONSUME' ? 'bg-white shadow text-blue-600 font-bold' : 'text-gray-500'}`}
                 >
-                    ประวัติเบิกใช้
+                    เบิกใช้
                 </button>
                 <button
                     onClick={() => setTab('BORROW')}
                     className={`px-4 py-2 text-sm rounded-md whitespace-nowrap ${tab === 'BORROW' ? 'bg-white shadow text-blue-600 font-bold' : 'text-gray-500'}`}
                 >
-                    ประวัติเบิกคืน (ค้างรับ)
+                    ยืม/คืน
                 </button>
             </div>
 
