@@ -164,6 +164,7 @@ export type Product = {
   img: string; // placeholder if not available
   locations: Location[];
   tags?: string[];
+  images?: string[];
 };
 
 // ช่อง 1–25 (Dynamic now)
@@ -221,6 +222,32 @@ function totalQty(p: Product) {
   return p.locations.reduce((s, l) => s + l.qty, 0);
 }
 
+// --- Image Preview Modal (Lightbox) ---
+function ImagePreviewModal({ src, onClose }: { src: string; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 cursor-pointer"
+      onClick={onClose}
+    >
+      <div className="relative max-w-4xl max-h-[90vh] w-full flex justify-center">
+        <img
+          src={src}
+          alt="Preview"
+          className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+        />
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white rounded-full p-2 backdrop-blur-sm transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // --- Search Page ---
 function SearchPage({
   products,
@@ -234,6 +261,7 @@ function SearchPage({
   const [searchParams, setSearchParams] = useSearchParams();
   const initialQuery = searchParams.get('q') || '';
   const [query, setQuery] = useState(initialQuery);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   // Update URL when typing
   useEffect(() => {
@@ -253,57 +281,79 @@ function SearchPage({
   }, [query, products]);
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
-      <h2 className="text-2xl font-bold mb-4">ค้นหาสินค้า</h2>
-      <div className="flex gap-3 mb-4">
-        <Input
-          placeholder="พิมพ์ชื่อสินค้า..."
-          value={query}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
-          className="flex-1"
-        />
+    <>
+      <div className="max-w-3xl mx-auto">
+        <h2 className="text-2xl font-bold mb-4">ค้นหาสินค้า</h2>
+        <div className="flex gap-3 mb-4">
+          <Input
+            placeholder="พิมพ์ชื่อสินค้า..."
+            value={query}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
+            className="flex-1"
+          />
+        </div>
+
+        {loading && <p className="text-sm text-gray-500">กำลังคำนวณยอดสต็อก...</p>}
+        {!loading && !query && <p className="text-sm text-gray-500">พิมพ์คำค้นเพื่อแสดงรายการ…</p>}
+        {!loading && query && results.length === 0 && (
+          <p className="text-sm text-red-600">ไม่พบสินค้าในระบบ</p>
+        )}
+
+        <div className="space-y-3">
+          {results.map((p) => (
+            <Card key={p.id} className="hover:shadow-sm">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-4">
+                  {/* Product Image or Placeholder */}
+                  {p.images && p.images.length > 0 ? (
+                    <div
+                      className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 border bg-gray-50 cursor-zoom-in hover:opacity-90 transition-opacity"
+                      onClick={() => setPreviewImage(
+                        p.images![0].startsWith('http') ? p.images![0] : `data:image/jpeg;base64,${p.images![0]}`
+                      )}
+                    >
+                      <img
+                        src={p.images[0].startsWith('http') ? p.images[0] : `data:image/jpeg;base64,${p.images[0]}`}
+                        alt={p.name}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-14 h-14 bg-gray-200 rounded-lg flex items-center justify-center text-xs text-gray-500 flex-shrink-0">
+                      IMG
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium truncate">{p.name}</div>
+                    <div className="text-xs text-gray-600">รวมคงเหลือ {totalQty(p)} ชิ้น</div>
+                  </div>
+                </div>
+
+                {/* Locations list */}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {p.locations.map((loc, idx) => (
+                    <Button
+                      key={`${p.id}-${loc.zone}-${loc.channel}-${idx}`}
+                      onClick={() => onOpenMap(p, loc)}
+                      title={`เปิดผังโซน ${loc.zone} ช่อง ${loc.channel}`}
+                      variant="secondary"
+                      className="text-xs"
+                    >
+                      โซน {loc.zone} • ช่อง {loc.channel} • {loc.qty} {loc.unit}
+                    </Button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
 
-      {loading && <p className="text-sm text-gray-500">กำลังคำนวณยอดสต็อก...</p>}
-      {!loading && !query && <p className="text-sm text-gray-500">พิมพ์คำค้นเพื่อแสดงรายการ…</p>}
-      {!loading && query && results.length === 0 && (
-        <p className="text-sm text-red-600">ไม่พบสินค้าในระบบ</p>
+      {/* Lightbox Modal */}
+      {previewImage && (
+        <ImagePreviewModal src={previewImage} onClose={() => setPreviewImage(null)} />
       )}
-
-      <div className="space-y-3">
-        {results.map((p) => (
-          <Card key={p.id} className="hover:shadow-sm">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-4">
-                {/* Placeholder Image */}
-                <div className="w-14 h-14 bg-gray-200 rounded-lg flex items-center justify-center text-xs text-gray-500">
-                  IMG
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium truncate">{p.name}</div>
-                  <div className="text-xs text-gray-600">รวมคงเหลือ {totalQty(p)} ชิ้น</div>
-                </div>
-              </div>
-
-              {/* Locations list */}
-              <div className="mt-3 flex flex-wrap gap-2">
-                {p.locations.map((loc, idx) => (
-                  <Button
-                    key={`${p.id}-${loc.zone}-${loc.channel}-${idx}`}
-                    onClick={() => onOpenMap(p, loc)}
-                    title={`เปิดผังโซน ${loc.zone} ช่อง ${loc.channel}`}
-                    variant="secondary"
-                    className="text-xs"
-                  >
-                    โซน {loc.zone} • ช่อง {loc.channel} • {loc.qty} {loc.unit}
-                  </Button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </div>
+    </>
   );
 }
 
@@ -322,73 +372,96 @@ function MapView({
   onReload: () => void;
 }) {
   const [showModal, setShowModal] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold">รายละเอียดสินค้า</h2>
-        <div className="flex gap-2">
-          <Button variant="ghost" onClick={onBack}>
-            ย้อนกลับ
-          </Button>
-        </div>
-      </div>
-
-      <Card className="mb-4">
-        <CardContent className="p-4 flex items-center gap-4">
-          <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center text-xs text-gray-500">
-            IMG
+    <>
+      <div className="max-w-3xl mx-auto">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-2xl font-bold">รายละเอียดสินค้า</h2>
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={onBack}>
+              ย้อนกลับ
+            </Button>
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="font-semibold truncate">{product.name}</div>
-            <div className="text-sm text-gray-600">
-              โซน {location.zone} / ช่อง {location.channel} • {location.qty} {location.unit}
+        </div>
+
+        <Card className="mb-4">
+          <CardContent className="p-4 flex items-center gap-4">
+            {product.images && product.images.length > 0 ? (
+              <div
+                className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 border bg-gray-50 cursor-zoom-in hover:opacity-90 transition-opacity"
+                onClick={() => setPreviewImage(
+                  product.images![0].startsWith('http') ? product.images![0] : `data:image/jpeg;base64,${product.images![0]}`
+                )}
+              >
+                <img
+                  src={product.images[0].startsWith('http') ? product.images[0] : `data:image/jpeg;base64,${product.images[0]}`}
+                  alt={product.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center text-xs text-gray-500 flex-shrink-0">
+                IMG
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold truncate">{product.name}</div>
+              <div className="text-sm text-gray-600">
+                โซน {location.zone} / ช่อง {location.channel} • {location.qty} {location.unit}
+              </div>
+            </div>
+            <Button variant="primary" onClick={() => setShowModal(true)} className="ml-auto">
+              เบิก
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Map for the focused zone */}
+        <RackMap zone={location.zone} highlight={location.channel} />
+
+        {/* Other locations quick switch */}
+        {product.locations.length > 1 && (
+          <div className="mt-4">
+            <div className="text-sm text-gray-600 mb-2">ตำแหน่งอื่นของสินค้านี้:</div>
+            <div className="flex flex-wrap gap-2">
+              {product.locations
+                .filter(
+                  (l) => l.zone !== location.zone || l.channel !== location.channel
+                )
+                .map((loc, idx) => (
+                  <Button
+                    key={`${product.id}-alt-${idx}`}
+                    onClick={() => onSwitch(loc)}
+                    variant="secondary"
+                    className="text-xs"
+                  >
+                    โซน {loc.zone} • ช่อง {loc.channel} • {loc.qty} {loc.unit}
+                  </Button>
+                ))}
             </div>
           </div>
-          <Button variant="primary" onClick={() => setShowModal(true)} className="ml-auto">
-            ทำรายการเบิก
-          </Button>
-        </CardContent>
-      </Card>
+        )}
 
-      {/* Map for the focused zone */}
-      <RackMap zone={location.zone} highlight={location.channel} />
+        {showModal && (
+          <IssueModal
+            product={product}
+            location={location}
+            onClose={() => setShowModal(false)}
+            onSuccess={() => {
+              setShowModal(false);
+              onReload();
+            }}
+          />
+        )}
+      </div>
 
-      {/* Other locations quick switch */}
-      {product.locations.length > 1 && (
-        <div className="mt-4">
-          <div className="text-sm text-gray-600 mb-2">ตำแหน่งอื่นของสินค้านี้:</div>
-          <div className="flex flex-wrap gap-2">
-            {product.locations
-              .filter(
-                (l) => l.zone !== location.zone || l.channel !== location.channel
-              )
-              .map((loc, idx) => (
-                <Button
-                  key={`${product.id}-alt-${idx}`}
-                  onClick={() => onSwitch(loc)}
-                  variant="secondary"
-                  className="text-xs"
-                >
-                  โซน {loc.zone} • ช่อง {loc.channel} • {loc.qty} {loc.unit}
-                </Button>
-              ))}
-          </div>
-        </div>
+      {/* Lightbox Modal */}
+      {previewImage && (
+        <ImagePreviewModal src={previewImage} onClose={() => setPreviewImage(null)} />
       )}
-
-      {showModal && (
-        <IssueModal
-          product={product}
-          location={location}
-          onClose={() => setShowModal(false)}
-          onSuccess={() => {
-            setShowModal(false);
-            onReload();
-          }}
-        />
-      )}
-    </div>
+    </>
   );
 }
 
@@ -435,6 +508,7 @@ export default function InventorySearchAndMap() {
         channel: string;
         qty: number;
         unit: string;
+        images?: string[];
       }>();
 
       // Process IN
@@ -447,9 +521,11 @@ export default function InventorySearchAndMap() {
         const key = `${pName.trim()}|${item.zone}|${channelStr}`;
         const existing = stockMap.get(key);
         const qty = Number(item.qty) || 0;
+        const imgs = item.images && Array.isArray(item.images) ? item.images : [];
 
         if (existing) {
           existing.qty += qty;
+          if (imgs.length > 0) existing.images = [...(existing.images || []), ...imgs];
         } else {
           stockMap.set(key, {
             name: pName.trim(),
@@ -457,6 +533,7 @@ export default function InventorySearchAndMap() {
             channel: channelStr,
             qty: qty,
             unit: item.unit || 'ชิ้น',
+            images: imgs
           });
         }
       });
@@ -517,13 +594,20 @@ export default function InventorySearchAndMap() {
         const existingProd = productMap.get(entry.name);
         if (existingProd) {
           existingProd.locations.push(loc);
+          if (entry.images && entry.images.length > 0) {
+            // Unique images
+            const set = new Set(existingProd.images || []);
+            entry.images.forEach(i => set.add(i));
+            existingProd.images = Array.from(set);
+          }
         } else {
           productMap.set(entry.name, {
             id: entry.name,
             name: entry.name,
             img: '',
             locations: [loc],
-            tags: tagsMap.get(entry.name) || [] // Attach tags
+            tags: tagsMap.get(entry.name) || [], // Attach tags
+            images: entry.images || []
           });
         }
       }

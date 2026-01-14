@@ -66,30 +66,104 @@ export type BorrowedItem = {
 // RECEIVE (IN)
 // =========================
 
+// Helper to upload a single file to Supabase Storage
+async function uploadToStorage(file: Blob, path: string) {
+  console.log('Starting upload for:', path, 'Size:', file.size, 'Type:', file.type);
+  const { error } = await supabase.storage
+    .from('product-images')
+    .upload(path, file, {
+      cacheControl: '3600',
+      upsert: false
+    });
+
+  if (error) {
+    console.error('Supabase Upload Error:', error);
+    throw error;
+  }
+
+  // Get Public URL
+  const { data: { publicUrl } } = supabase.storage
+    .from('product-images')
+    .getPublicUrl(path);
+
+  console.log('Upload success. Public URL:', publicUrl);
+  return publicUrl;
+}
+
 export async function uploadReceive(payload: any) {
   // Payload: { name, qty, unit, zone, channel, detail, images: [...], tags: string[] }
-  // We map this to 'transactions' table with type='IN'
+  // Images array contains: { base64?, blob?, file?, ... } from imaging.ts
 
   try {
+    console.log('uploadReceive payload:', payload);
+
+    // 1. Upload Images to Storage
+    const imageUrls: string[] = [];
+
+    if (payload.images && Array.isArray(payload.images)) {
+      console.log('Found images to upload:', payload.images.length);
+      for (let i = 0; i < payload.images.length; i++) {
+        const item = payload.images[i];
+        let blobToUpload: Blob | null = null;
+        let filename = `img_${Date.now()}_${i}.jpg`; // Default name
+
+        // Handle various input formats from processFiles/imaging.ts
+        if (item.file instanceof Blob) {
+          blobToUpload = item.file;
+          filename = item.filename || item.file.name;
+        } else if (item.blob instanceof Blob) {
+          blobToUpload = item.blob;
+          filename = item.filename || `image_${i}.jpg`;
+        } else if (item.base64) {
+          // Fallback for base64: create Blob (less efficient but works)
+          const res = await fetch(`data:${item.mimeType};base64,${item.base64}`);
+          blobToUpload = await res.blob();
+          filename = item.filename || `image_${i}.jpg`;
+        }
+
+        if (blobToUpload) {
+          // Sanitize filename
+          const cleanName = filename.replace(/[^a-zA-Z0-9.]/g, '_');
+
+          // FIX: Invalid key error for non-ASCII (Thai) characters.
+          // Instead of using product name as folder, use a generic folder + unique timestamp
+          // Pattern: uploads/{timestamp}_{random}_{cleanName}
+          const path = `uploads/${Date.now()}_${Math.floor(Math.random() * 1000)}_${cleanName}`;
+
+          try {
+            console.log(`Processing image ${i}:`, filename, blobToUpload);
+            const url = await uploadToStorage(blobToUpload, path);
+            imageUrls.push(url);
+          } catch (upErr) {
+            console.error('Upload failed for', filename, upErr);
+            // Verify if we want to abort or continue? Let's continue.
+          }
+        } else {
+          console.warn('No blob found for image item:', item);
+        }
+      }
+    } else {
+      console.log('No images in payload');
+    }
+
+    console.log('Final Image URLs to save:', imageUrls);
+
     // Upsert product (if name doesn't exist, create it)
-    // Update: Add 'tags' to products table. Assumes column 'tags' (text[]) exists or we use 'details' or similar.
-    // Let's assume we added 'tags' column of type text[] or text.
-    // We will coerce payload.tags (array of strings) to PostgreSQL array or just JSONB.
     const { error: prodError } = await supabase
       .from('products')
       .upsert(
         {
           name: payload.name,
           unit: payload.unit,
-          category: payload.zone, // Use zone as category for now
-          tags: payload.tags // Array of strings
+          category: payload.zone,
+          tags: payload.tags
         },
         { onConflict: 'name' }
       );
 
     if (prodError) throw new Error('Failed to upsert product: ' + prodError.message);
 
-    // 2. Insert Transaction
+    // 2. Insert Transaction with Image URLs
     const { error: transError } = await supabase
       .from('transactions')
       .insert({
@@ -100,9 +174,8 @@ export async function uploadReceive(payload: any) {
         zone: payload.zone,
         channel: payload.channel,
         remark: payload.detail,
-        images: payload.images, // Storing JSONB
+        images: imageUrls, // Now storing URLs
         status: 'COMPLETED'
-        // We don't store tags in transaction, only in product master
       });
 
     if (transError) throw new Error(transError.message);

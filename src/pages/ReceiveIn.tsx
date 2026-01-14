@@ -82,51 +82,13 @@ export default function ReceiveIn() {
     try {
       const processed = await processFiles(form.images);
 
-      const images = await Promise.all(
-        processed.map(async (p: any, i: number) => {
-          // 1) มี base64 มาแล้ว
-          if (p.base64) {
-            return {
-              base64: p.base64,
-              mimeType: p.mimeType || 'image/jpeg',
-              filename: p.filename || `image_${i}.jpg`,
-            };
-          }
-
-          // 2) จาก dataURL
-          if (p.dataUrl && typeof p.dataUrl === 'string') {
-            const b64 = p.dataUrl.split(',')[1] || '';
-            return {
-              base64: b64,
-              mimeType: p.mimeType || 'image/jpeg',
-              filename: p.filename || `image_${i}.jpg`,
-            };
-          }
-
-          // 3) จาก Blob/File
-          const blob: Blob =
-            p.file instanceof Blob
-              ? p.file
-              : p.blob instanceof Blob
-                ? p.blob
-                : (form.images[i] as Blob);
-
-          const base64 = await fileToBase64(blob);
-          const guessName =
-            (p.file && p.file.name) ||
-            (p.blob && p.blob.name) ||
-            (form.images[i] && form.images[i].name) ||
-            `image_${i}.jpg`;
-
-          const guessType = p.mimeType || (blob as any).type || 'image/jpeg';
-
-          return {
-            base64,
-            mimeType: guessType,
-            filename: guessName,
-          };
-        })
-      );
+      // Update: Pass blobs directly to API for storage upload
+      // 'processed' contains { blob, fileName, mimeType ... } from imaging.ts
+      const imagesPayload = processed.map((p: any) => ({
+        blob: p.blob,
+        filename: p.fileName,
+        mimeType: p.mimeType
+      }));
 
       const payload = {
         name: form.name,
@@ -135,7 +97,7 @@ export default function ReceiveIn() {
         zone: form.zone,
         channel: form.channel,
         detail: form.detail || '',
-        images,
+        images: imagesPayload, // Pass blobs
         tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : []
       };
 
@@ -406,13 +368,3 @@ export default function ReceiveIn() {
 }
 
 // ---------- util ----------
-const fileToBase64 = (blob: Blob) =>
-  new Promise<string>((resolve, reject) => {
-    const fr = new FileReader();
-    fr.onload = () => {
-      const dataUrl = String(fr.result || '');
-      resolve(dataUrl.split(',')[1] || '');
-    };
-    fr.onerror = reject;
-    fr.readAsDataURL(blob);
-  });

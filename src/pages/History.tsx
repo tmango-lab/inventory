@@ -482,13 +482,21 @@ const HistoryPage: React.FC = () => {
                 >
                     <div className="bg-white p-2 rounded max-w-3xl w-full max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
                         <div className="grid gap-4">
-                            {images.map((img, i) => (
-                                <img
-                                    key={i}
-                                    src={img.startsWith('data:') ? img : `data:image/jpeg;base64,${img}`}
-                                    className="w-full h-auto rounded"
-                                />
-                            ))}
+                            {images.map((img, idx) => {
+                                // Check if it's a URL (http/https) or Base64
+                                const isUrl = img.startsWith('http');
+                                const src = isUrl ? img : `data:image/jpeg;base64,${img}`;
+
+                                return (
+                                    <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border">
+                                        <img
+                                            src={src}
+                                            alt={`รูปสินค้า ${idx + 1}`}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 </div>

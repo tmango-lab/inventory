@@ -87,7 +87,49 @@ export default function StockPage() {
       )}
 
       {/* ตาราง */}
-      <div className="overflow-auto rounded-lg border">
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-3">
+        {filtered.map((x, idx) => (
+          <div
+            key={idx}
+            className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-3 active:scale-[0.98] transition-transform cursor-pointer"
+            onClick={() => navigate(`/search?q=${encodeURIComponent(x.ITEM_NAME)}`)}
+          >
+            <div className="flex justify-between items-start gap-4">
+              <div className="font-bold text-blue-600 text-lg leading-tight">{x.ITEM_NAME}</div>
+              <span className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full whitespace-nowrap">
+                {x.UNIT}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 border-t pt-3">
+              <div className="flex flex-col items-center justify-center p-2 bg-green-50 rounded-lg">
+                <span className="text-[10px] text-green-700 font-bold uppercase">รับเข้า</span>
+                <span className="font-bold text-gray-700">{x.TOTAL_IN}</span>
+              </div>
+              <div className="flex flex-col items-center justify-center p-2 bg-orange-50 rounded-lg">
+                <span className="text-[10px] text-orange-700 font-bold uppercase">ออก</span>
+                <span className="font-bold text-gray-700">{x.TOTAL_OUT}</span>
+              </div>
+              <div className="flex flex-col items-center justify-center p-2 bg-blue-50 rounded-lg border border-blue-100 shadow-sm">
+                <span className="text-[10px] text-blue-700 font-bold uppercase">คงเหลือ</span>
+                <span
+                  className={`font-black text-xl ${x.BALANCE <= 0 ? 'text-red-600' : 'text-blue-700'
+                    }`}
+                >
+                  {x.BALANCE}
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
+        {filtered.length === 0 && !loading && (
+          <div className="text-center text-gray-500 py-8">ไม่พบรายการ</div>
+        )}
+      </div>
+
+      {/* Desktop Table View */}
+      <div className="hidden md:block overflow-auto rounded-lg border">
         <table className="min-w-full bg-white">
           <thead className="bg-gray-100 text-gray-700 text-sm">
             <tr>
@@ -110,7 +152,10 @@ export default function StockPage() {
                 <td className="px-4 py-3 text-center text-gray-500">{x.UNIT}</td>
                 <td className="px-4 py-3 text-center text-gray-500">{x.TOTAL_IN}</td>
                 <td className="px-4 py-3 text-center text-gray-500">{x.TOTAL_OUT}</td>
-                <td className={`px-4 py-3 text-center font-bold text-lg ${x.BALANCE <= 0 ? 'text-red-500' : 'text-green-600'}`}>
+                <td
+                  className={`px-4 py-3 text-center font-bold text-lg ${x.BALANCE <= 0 ? 'text-red-500' : 'text-green-600'
+                    }`}
+                >
                   {x.BALANCE}
                 </td>
               </tr>
@@ -118,10 +163,7 @@ export default function StockPage() {
 
             {filtered.length === 0 && !loading && (
               <tr>
-                <td
-                  className="px-4 py-6 text-center text-gray-500"
-                  colSpan={5}
-                >
+                <td className="px-4 py-6 text-center text-gray-500" colSpan={5}>
                   ไม่พบรายการ
                 </td>
               </tr>
