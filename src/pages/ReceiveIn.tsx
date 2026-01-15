@@ -31,7 +31,7 @@ export default function ReceiveIn() {
     channel: '',
     detail: '',
     images: [],
-    tags: '', // comma separated string
+    tags: '', // space separated string
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -98,7 +98,7 @@ export default function ReceiveIn() {
         channel: form.channel,
         detail: form.detail || '',
         images: imagesPayload, // Pass blobs
-        tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : []
+        tags: form.tags ? form.tags.trim().split(/\s+/).filter(Boolean) : []
       };
 
       const res = await uploadReceive(payload);
@@ -276,7 +276,7 @@ export default function ReceiveIn() {
       <div className="space-y-1">
         <label className="text-sm font-medium text-gray-700">Tags (คำค้นหา)</label>
         <Input
-          placeholder="เช่น เครื่องเขียน, Office, 2024 (คั่นด้วยคอมม่า)"
+          placeholder="ระบุสิ่งที่เกี่ยวกับของ เช่น ช้อน หลอดไฟ ขนม"
           value={form.tags}
           onChange={(e) => setField('tags', e.target.value)}
         />

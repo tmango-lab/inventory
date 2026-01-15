@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Input, Button, Textarea } from '../components/UI';
 import { supabase } from '../lib/supabaseClient';
 import { listReceipts, getOutHistory, createOut, type OutHistoryRow } from '../lib/api';
+import { ProductDetailModal } from '../components/ProductDetailModal';
 
 // ------- Card Components -------
 const Card: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
@@ -261,7 +262,7 @@ function SearchPage({
   const [searchParams, setSearchParams] = useSearchParams();
   const initialQuery = searchParams.get('q') || '';
   const [query, setQuery] = useState(initialQuery);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [detailProduct, setDetailProduct] = useState<Product | null>(null);
 
   // Update URL when typing
   useEffect(() => {
@@ -307,10 +308,8 @@ function SearchPage({
                   {/* Product Image or Placeholder */}
                   {p.images && p.images.length > 0 ? (
                     <div
-                      className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 border bg-gray-50 cursor-zoom-in hover:opacity-90 transition-opacity"
-                      onClick={() => setPreviewImage(
-                        p.images![0].startsWith('http') ? p.images![0] : `data:image/jpeg;base64,${p.images![0]}`
-                      )}
+                      className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 border bg-gray-50 cursor-pointer hover:opacity-90 transition-opacity"
+                      onClick={() => setDetailProduct(p)}
                     >
                       <img
                         src={p.images[0].startsWith('http') ? p.images[0] : `data:image/jpeg;base64,${p.images[0]}`}
@@ -324,8 +323,14 @@ function SearchPage({
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate">{p.name}</div>
+                    <div className="font-medium truncate cursor-pointer hover:underline" onClick={() => setDetailProduct(p)}>{p.name}</div>
                     <div className="text-xs text-gray-600">รวมคงเหลือ {totalQty(p)} ชิ้น</div>
+                    <button
+                      onClick={() => setDetailProduct(p)}
+                      className="text-[10px] text-blue-600 hover:underline mt-1"
+                    >
+                      ดูรายละเอียด
+                    </button>
                   </div>
                 </div>
 
@@ -349,9 +354,12 @@ function SearchPage({
         </div>
       </div>
 
-      {/* Lightbox Modal */}
-      {previewImage && (
-        <ImagePreviewModal src={previewImage} onClose={() => setPreviewImage(null)} />
+      {/* Product Detail Modal */}
+      {detailProduct && (
+        <ProductDetailModal
+          product={detailProduct}
+          onClose={() => setDetailProduct(null)}
+        />
       )}
     </>
   );
