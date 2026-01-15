@@ -5,12 +5,13 @@ import {
     upsertShelfConfig,
     deleteShelfConfig,
     type ShelfConfig,
-    updateProduct
+    updateProduct,
+    clearExperimentData
 } from '../lib/api';
 import { supabase } from '../lib/supabaseClient';
 
 export default function SettingsPage() {
-    const [activeTab, setActiveTab] = useState<'shelf' | 'product'>('shelf');
+    const [activeTab, setActiveTab] = useState<'shelf' | 'product' | 'danger'>('shelf');
 
     return (
         <div className="space-y-6">
@@ -33,10 +34,77 @@ export default function SettingsPage() {
                 >
                     จัดการสินค้า (Product Master)
                 </button>
+                <button
+                    className={`pb-2 text-sm font-medium transition-colors ml-auto ${activeTab === 'danger'
+                        ? 'border-b-2 border-red-600 text-red-600'
+                        : 'text-red-400 hover:text-red-600'
+                        }`}
+                    onClick={() => setActiveTab('danger')}
+                >
+                    ⚠️ Reset Data
+                </button>
             </div>
 
             {activeTab === 'shelf' && <ShelfTab />}
             {activeTab === 'product' && <ProductTab />}
+            {activeTab === 'danger' && <DangerTab />}
+        </div>
+    );
+}
+
+function DangerTab() {
+    const [secret, setSecret] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    async function handleReset() {
+        if (secret !== 'ภากร') {
+            alert('รหัสลับไม่ถูกต้อง!');
+            return;
+        }
+
+        if (!confirm('ยืนยันจริงๆ ใช่ไหม? ข้อมูลสินค้าและประวัติทั้งหมดจะหายไปกู้คืนไม่ได้!')) return;
+
+        setLoading(true);
+        try {
+            await clearExperimentData();
+            alert('ล้างข้อมูลเรียบร้อย! ระบบสะอาดเหมือนใหม่');
+            setSecret('');
+        } catch (err: any) {
+            alert('เกิดข้อผิดพลาด: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    return (
+        <div className="max-w-xl mx-auto mt-10 p-6 bg-red-50 border border-red-200 rounded-xl text-center space-y-6">
+            <h3 className="text-2xl font-bold text-red-700">⚠️ Danger Zone</h3>
+            <p className="text-gray-600">
+                ล้างสินค้าและประวัติทั้งหมด <span className="text-red-600">(กู้คืนไม่ได้)</span>
+                <br />
+                * การตั้งค่าชั้นวางจะยังอยู่
+            </p>
+
+            <div className="bg-white p-4 rounded-lg shadow-sm max-w-sm mx-auto space-y-3">
+                <label className="block text-sm font-medium text-gray-700">
+                    พิมพ์รหัสลับเพื่อยืนยัน
+                </label>
+                <Input
+                    type="password" // or text
+                    value={secret}
+                    onChange={e => setSecret(e.target.value)}
+                    placeholder="รหัสลับ..."
+                    className="text-center"
+                />
+            </div>
+
+            <Button
+                onClick={handleReset}
+                className="bg-red-600 hover:bg-red-700 text-white w-full max-w-xs text-lg py-3"
+                disabled={loading}
+            >
+                {loading ? 'กำลังล้างระบบ...' : '💣 ยืนยันล้างข้อมูลทั้งหมด'}
+            </Button>
         </div>
     );
 }

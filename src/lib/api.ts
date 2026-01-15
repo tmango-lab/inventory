@@ -577,3 +577,40 @@ export async function updateProduct(originalName: string, updates: { name?: stri
 
   return { ok: true };
 }
+
+// =========================
+// SYSTEM RESET
+// =========================
+
+export async function clearExperimentData() {
+  // 1. Delete all transactions
+  const { error: transError } = await supabase
+    .from('transactions')
+    .delete()
+    .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all (safe trick)
+
+  if (transError) throw new Error('Failed to delete transactions: ' + transError.message);
+
+  // 2. Delete all products
+  const { error: prodError } = await supabase
+    .from('products')
+    .delete()
+    .neq('id', '00000000-0000-0000-0000-000000000000');
+
+  if (prodError) throw new Error('Failed to delete products: ' + prodError.message);
+
+  // 3. (Optional) Try to list and delete images
+  // For now, we just clear the DB references. Cleaning storage is harder without admin limits.
+  // But we can try to empty the 'uploads' folder if possible.
+  try {
+    const { data: list } = await supabase.storage.from('product-images').list('uploads', { limit: 100 });
+    if (list && list.length > 0) {
+      const filesToRemove = list.map(x => `uploads/${x.name}`);
+      await supabase.storage.from('product-images').remove(filesToRemove);
+    }
+  } catch (e) {
+    console.warn('Failed to clean storage (permissions?)', e);
+  }
+
+  return { ok: true };
+}
