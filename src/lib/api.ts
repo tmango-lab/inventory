@@ -67,7 +67,7 @@ export type BorrowedItem = {
 // =========================
 
 // Helper to upload a single file to Supabase Storage
-async function uploadToStorage(file: Blob, path: string) {
+export async function uploadToStorage(file: Blob, path: string) {
   console.log('Starting upload for:', path, 'Size:', file.size, 'Type:', file.type);
   const { error } = await supabase.storage
     .from('product-images')
@@ -119,6 +119,14 @@ export async function uploadReceive(payload: any) {
           const res = await fetch(`data:${item.mimeType};base64,${item.base64}`);
           blobToUpload = await res.blob();
           filename = item.filename || `image_${i}.jpg`;
+        } else if (typeof item === 'string' && item.startsWith('blob:')) {
+          // If it's a blob url, we might need to fetch it? 
+          // Usually processFiles returns objects with .blob. 
+          // If we just pass pure File objects?
+          if (item instanceof File) {
+            blobToUpload = item;
+            filename = item.name;
+          }
         }
 
         if (blobToUpload) {
@@ -156,12 +164,16 @@ export async function uploadReceive(payload: any) {
           name: payload.name,
           unit: payload.unit,
           category: payload.zone,
-          tags: payload.tags
+          tags: payload.tags,
+          // If we receive "new" layout images, maybe we should also append them to product master? 
+          // For now, let's keep Receive logic as is, but maybe INIT the images array if empty?
+          // We won't touch 'images' here to avoid overwriting Master Images with transaction snapshopts unless intended.
         },
         { onConflict: 'name' }
       );
 
     if (prodError) throw new Error('Failed to upsert product: ' + prodError.message);
+
 
     // 2. Insert Transaction with Image URLs
     const { error: transError } = await supabase
@@ -174,7 +186,7 @@ export async function uploadReceive(payload: any) {
         zone: payload.zone,
         channel: payload.channel,
         remark: payload.detail,
-        images: imageUrls, // Now storing URLs
+        images: imageUrls,
         status: 'COMPLETED'
       });
 
@@ -193,7 +205,6 @@ export async function uploadReceive(payload: any) {
 
 export async function checkSimilarProducts(name: string) {
   // Call the Postgres RPC function
-  // We use a threshold of 0.3 as a baseline (can be tuned)
   const { data, error } = await supabase.rpc('check_similar_products', {
     search_term: name,
     threshold: 0.3
@@ -239,7 +250,6 @@ export async function listReceipts({ search = "", page = 1, limit = 20 }: ListRe
 // =========================
 
 export async function fetchStockSummary(): Promise<StockRow[]> {
-  // Query from the View 'stock_summary'
   const { data, error } = await supabase
     .from('stock_summary')
     .select('*')
@@ -247,12 +257,11 @@ export async function fetchStockSummary(): Promise<StockRow[]> {
 
   if (error) throw new Error(error.message);
 
-  // Map to StockRow interface
   return (data || []).map((row: any) => ({
     ITEM_NAME: row.item_name,
     UNIT: row.unit,
     TOTAL_IN: row.total_in,
-    TOTAL_OUT: row.total_out + row.total_return, // Just logic mapping for UI compat
+    TOTAL_OUT: row.total_out + row.total_return,
     BALANCE: row.balance,
     LAST_IN_DATE: null,
     LAST_OUT_DATE: row.last_movement,
@@ -269,7 +278,7 @@ export async function getOutHistory(): Promise<OutHistoryRow[]> {
   const { data, error } = await supabase
     .from('transactions')
     .select('*')
-    .neq('type', 'IN') // Everything except IN
+    .neq('type', 'IN')
     .order('created_at', { ascending: false });
 
   if (error) throw new Error(error.message);
@@ -300,11 +309,10 @@ export async function getAllHistory(filter: HistoryFilterType = 'ALL') {
   if (filter === 'IN') {
     query = query.eq('type', 'IN');
   } else if (filter === 'OUT') {
-    query = query.neq('type', 'IN'); // OUT, BORROW, CONSUME, RETURN
+    query = query.neq('type', 'IN');
   }
 
   const { data, error } = await query;
-
   if (error) throw new Error(error.message);
 
   return (data || []).map((row: any) => ({
@@ -324,7 +332,6 @@ export async function getAllHistory(filter: HistoryFilterType = 'ALL') {
 
 export async function createOut(payload: OutFormPayload) {
   try {
-    // type: 'consume' | 'borrow' -> Uppercase for DB
     const dbType = payload.type.toUpperCase() === 'BORROW' ? 'BORROW' : 'CONSUME';
     const status = dbType === 'BORROW' ? 'PENDING_RETURN' : 'COMPLETED';
 
@@ -346,9 +353,7 @@ export async function createOut(payload: OutFormPayload) {
       .single();
 
     if (error) throw new Error(error.message);
-
     return { ok: true, outId: data.id, message: 'Saved' };
-
   } catch (e: any) {
     console.error('createOut Error:', e);
     throw new Error(e.message || "Failed to save");
@@ -360,93 +365,50 @@ export async function createOut(payload: OutFormPayload) {
 // =========================
 
 export async function getBorrowedList(): Promise<BorrowedItem[]> {
-  // Fetch transactions where type='BORROW'
   const { data: borrows, error } = await supabase
     .from('transactions')
-    .select(`
-      *,
-      returns:transactions!parent_id(*)
-    `)
+    .select(`*, returns:transactions!parent_id(*)`)
     .eq('type', 'BORROW')
     .order('created_at', { ascending: false });
 
   if (error) throw new Error(error.message);
 
-  const items: BorrowedItem[] = (borrows || []).map((b: any) => {
-    // Calculate returned amount
+  return (borrows || []).map((b: any) => {
     const returnsList = (b.returns || []) as any[];
-
-    const returnedSum = returnsList
-      .filter((r: any) => r.type === 'RETURN')
-      .reduce((sum: number, r: any) => sum + r.qty, 0);
-
-    const lostSum = returnsList
-      .filter((r: any) => r.type === 'LOSS')
-      .reduce((sum: number, r: any) => sum + r.qty, 0);
-
+    const returnedSum = returnsList.filter((r: any) => r.type === 'RETURN').reduce((sum: number, r: any) => sum + r.qty, 0);
+    const lostSum = returnsList.filter((r: any) => r.type === 'LOSS').reduce((sum: number, r: any) => sum + r.qty, 0);
     const left = b.qty - returnedSum - lostSum;
-
-    // Get latest return/loss info
-    // Sort descending by date
-    const lastAction = returnsList
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+    const lastAction = returnsList.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
 
     return {
       outId: b.id,
-      date: b.created_at, // Borrow Date
+      date: b.created_at,
       itemName: b.product_name,
       qtyKey: b.qty,
       qtyReturned: returnedSum,
       qtyLost: lostSum,
       qtyLeft: left,
-      requestBy: b.request_by, // Borrowed By
-      remark: b.remark, // Borrow Remark
-
-      // Location Info
+      requestBy: b.request_by,
+      remark: b.remark,
       zone: b.zone,
       channel: b.channel,
-
-      // New Fields from latest return action
       lastReturnDate: lastAction ? lastAction.created_at : undefined,
       returnerName: lastAction ? lastAction.request_by : undefined,
       lastReturnRemark: lastAction ? lastAction.remark : undefined
     };
   });
-
-  return items;
 }
 
-export async function returnItem(payload: {
-  outId: string;
-  returnQty: number;
-  lostQty: number;
-  returnerName: string; // New field
-  reason?: string;
-}) {
-  // 1. Fetch original borrow to get details
-  const { data: original, error: fetchError } = await supabase
-    .from('transactions')
-    .select('*')
-    .eq('id', payload.outId)
-    .single();
-
+export async function returnItem(payload: { outId: string; returnQty: number; lostQty: number; returnerName: string; reason?: string; }) {
+  const { data: original, error: fetchError } = await supabase.from('transactions').select('*').eq('id', payload.outId).single();
   if (fetchError || !original) throw new Error('Borrow Record not found');
 
-  // Validate quantities
-  const { data: previousReturns } = await supabase
-    .from('transactions')
-    .select('qty')
-    .eq('parent_id', payload.outId)
-    .in('type', ['RETURN', 'LOSS']);
-
+  const { data: previousReturns } = await supabase.from('transactions').select('qty').eq('parent_id', payload.outId).in('type', ['RETURN', 'LOSS']);
   const returnedAlready = (previousReturns || []).reduce((acc, r) => acc + r.qty, 0);
   const remaining = original.qty - returnedAlready;
 
-  if (payload.returnQty + payload.lostQty > remaining) {
-    throw new Error(`Exceeds remaining borrowed amount (${remaining} ${original.unit})`);
-  }
+  if (payload.returnQty + payload.lostQty > remaining) throw new Error(`Exceeds remaining borrowed amount (${remaining} ${original.unit})`);
 
-  // 2. Insert RETURN transaction
   if (payload.returnQty > 0) {
     const { error: retError } = await supabase.from('transactions').insert({
       type: 'RETURN',
@@ -457,14 +419,12 @@ export async function returnItem(payload: {
       request_by: payload.returnerName,
       remark: payload.reason || 'Returned',
       status: 'COMPLETED',
-      // CRITICAL FIX: Save Zone/Channel so Map calculation works
       zone: original.zone,
       channel: original.channel
     });
     if (retError) throw new Error(retError.message);
   }
 
-  // 3. Insert LOSS transaction
   if (payload.lostQty > 0) {
     const { error: lossError } = await supabase.from('transactions').insert({
       type: 'LOSS',
@@ -475,27 +435,20 @@ export async function returnItem(payload: {
       request_by: payload.returnerName,
       remark: payload.reason || 'No reason specified',
       status: 'COMPLETED',
-      // CRITICAL FIX: Save Zone/Channel (though Loss doesn't return to stock, consistent data is good)
       zone: original.zone,
       channel: original.channel
     });
     if (lossError) throw new Error(lossError.message);
   }
 
-  // 4. Update parent status if fully resolved
   const totalProcessed = returnedAlready + payload.returnQty + payload.lostQty;
-
   if (totalProcessed >= original.qty) {
-    await supabase
-      .from('transactions')
-      .update({ status: 'RETURNED' })
-      .eq('id', payload.outId);
+    await supabase.from('transactions').update({ status: 'RETURNED' }).eq('id', payload.outId);
   }
 
   return { ok: true, message: 'Returned successfully' };
 }
 
-// =========================
 // SHELF CONFIG
 // =========================
 
@@ -506,56 +459,64 @@ export type ShelfConfig = {
 };
 
 export async function getShelfConfigs(): Promise<ShelfConfig[]> {
-  const { data, error } = await supabase
-    .from('shelf_configs')
-    .select('*')
-    .order('zone');
-
-  // If table doesn't exist yet, return empty or default?
-  // Supabase throws error if table missing.
-  if (error) {
-    console.error('getShelfConfigs error:', error);
-    return [];
-  }
-
-  return (data || []).map((d: any) => ({
-    zone: d.zone,
-    floors: d.floors,
-    slots_per_floor: d.slots_per_floor
-  }));
+  const { data, error } = await supabase.from('shelf_configs').select('*').order('zone');
+  if (error) { console.error('getShelfConfigs error:', error); return []; }
+  return (data || []).map((d: any) => ({ zone: d.zone, floors: d.floors, slots_per_floor: d.slots_per_floor }));
 }
 
 export async function upsertShelfConfig(config: ShelfConfig) {
-  const { error } = await supabase
-    .from('shelf_configs')
-    .upsert({
-      zone: config.zone,
-      floors: config.floors,
-      slots_per_floor: config.slots_per_floor
-    });
-
+  const { error } = await supabase.from('shelf_configs').upsert({ zone: config.zone, floors: config.floors, slots_per_floor: config.slots_per_floor });
   if (error) throw new Error(error.message);
   return { ok: true };
 }
 
 export async function deleteShelfConfig(zone: string) {
-  const { error } = await supabase
-    .from('shelf_configs')
-    .delete()
-    .eq('zone', zone);
-
+  const { error } = await supabase.from('shelf_configs').delete().eq('zone', zone);
   if (error) throw new Error(error.message);
   return { ok: true };
 }
 
+
+
 // =========================
 // PRODUCT MANAGEMENT
 // =========================
+export async function updateProduct(originalName: string, updates: {
+  name?: string;
+  unit?: string;
+  tags?: string[];
+  images?: any[]; // Array of strings (existing URLs) or objects (new blobs)
+}) {
+  console.log('updateProduct:', originalName, updates);
 
-export async function updateProduct(originalName: string, updates: { name?: string; unit?: string; tags?: string[] }) {
   if (updates.name && updates.name !== originalName) {
     const { data: existing } = await supabase.from('products').select('name').eq('name', updates.name).single();
     if (existing) throw new Error(`Product name "${updates.name}" already exists.`);
+  }
+
+  // Handle Image Uploads if 'images' is present
+  let finalImages: string[] | undefined = undefined;
+
+  if (updates.images) {
+    finalImages = [];
+    for (const img of updates.images) {
+      if (typeof img === 'string') {
+        // Existing URL
+        finalImages.push(img);
+      } else if (img.blob || img.file) {
+        // New file to upload
+        const blob = img.blob || img.file;
+        const filename = img.fileName || img.filename || `update_${Date.now()}.jpg`;
+        const cleanName = filename.replace(/[^a-zA-Z0-9.]/g, '_');
+        const path = `uploads/${Date.now()}_${Math.floor(Math.random() * 1000)}_${cleanName}`;
+        try {
+          const url = await uploadToStorage(blob, path);
+          finalImages.push(url);
+        } catch (e) {
+          console.error('Failed to upload image in updateProduct', e);
+        }
+      }
+    }
   }
 
   const { error } = await supabase
@@ -564,6 +525,7 @@ export async function updateProduct(originalName: string, updates: { name?: stri
       ...(updates.name ? { name: updates.name } : {}),
       ...(updates.unit ? { unit: updates.unit } : {}),
       ...(updates.tags ? { tags: updates.tags } : {}),
+      ...(finalImages ? { images: finalImages } : {})
     })
     .eq('name', originalName);
 

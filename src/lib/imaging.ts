@@ -1,5 +1,15 @@
 // src/lib/imaging.ts
-import type { ProcessedImage } from '../types';
+
+export type ProcessedImage = {
+  fileName: string;
+  mimeType: string;
+  width: number;
+  height: number;
+  bytes: number;
+  blob: Blob;
+  objectUrl: string;
+  base64?: string; // Optional property if needed later
+};
 
 export type ResizeOptions = {
   /** ด้านยาวสุดสูงสุด (px) */

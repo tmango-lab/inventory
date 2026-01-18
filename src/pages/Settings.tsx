@@ -254,10 +254,8 @@ function ProductTab() {
     }, []);
 
     async function fetchProducts() {
-
         const { data } = await supabase.from('products').select('*').order('name');
         setProducts(data || []);
-
     }
 
     const filtered = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
@@ -276,9 +274,19 @@ function ProductTab() {
             <div className="grid gap-2">
                 {filtered.slice(0, 50).map(p => (
                     <div key={p.name} className="flex justify-between items-center p-3 bg-white border rounded hover:bg-gray-50">
-                        <div>
-                            <div className="font-medium">{p.name}</div>
-                            <div className="text-xs text-gray-500">Unit: {p.unit} | Tags: {p.tags?.join(', ')}</div>
+                        <div className="flex gap-3 items-center">
+                            {/* Small thumbnail if available */}
+                            <div className="w-10 h-10 bg-gray-100 rounded overflow-hidden flex-shrink-0 border">
+                                {p.images && p.images.length > 0 ? (
+                                    <img src={p.images[0]} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="flex items-center justify-center h-full text-[10px] text-gray-400">IMG</div>
+                                )}
+                            </div>
+                            <div>
+                                <div className="font-medium">{p.name}</div>
+                                <div className="text-xs text-gray-500">Unit: {p.unit} | Tags: {p.tags?.join(', ')}</div>
+                            </div>
                         </div>
                         <Button variant="secondary" onClick={() => setEditingItem(p)}>แก้ไข</Button>
                     </div>
@@ -299,25 +307,77 @@ function ProductTab() {
     );
 }
 
+import { processFiles, type ProcessedImage } from '../lib/imaging';
+
 function EditProductModal({ item, onClose, onSuccess }: any) {
     const [form, setForm] = useState({
         name: item.name,
         unit: item.unit || '',
         tags: item.tags ? item.tags.join(', ') : ''
     });
+
+    // Manage images: 
+    // We start with existing images (URLs).
+    // User can add new files (Blob) or delete existing/new.
+    // Normalized structure: { id: string, url?: string, blob?: Blob, isNew: boolean }
+    const [imageList, setImageList] = useState<any[]>(
+        (item.images || []).map((url: string) => ({ id: url, url, isNew: false }))
+    );
+    const [processing, setProcessing] = useState(false);
     const [loading, setLoading] = useState(false);
+
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files?.length) return;
+        setProcessing(true);
+        try {
+            const processed = await processFiles(e.target.files);
+            // Append to list
+            const newItems = processed.map(p => ({
+                id: p.objectUrl, // Use objectUrl as temporary ID
+                url: p.objectUrl,
+                blob: p.blob,
+                fileName: p.fileName, // Pass filename for upload
+                isNew: true
+            }));
+            setImageList(prev => [...prev, ...newItems]);
+        } catch (error) {
+            console.error(error);
+            alert('Error processing images');
+        } finally {
+            setProcessing(false);
+            // Reset input
+            e.target.value = '';
+        }
+    };
+
+    const removeImage = (index: number) => {
+        setImageList(prev => prev.filter((_, i) => i !== index));
+    };
 
     async function save() {
         setLoading(true);
         try {
+            // Prepare images payload for updateProduct
+            // It expects an array of mixed types (string url or object with blob)
+            // Logic in api.ts loops: if string -> keep, if object -> upload.
+
+            const imagesPayload = imageList.map(img => {
+                if (img.isNew) {
+                    return { blob: img.blob, fileName: img.fileName };
+                }
+                return img.url;
+            });
+
             await updateProduct(item.name, {
                 name: form.name,
                 unit: form.unit,
-                tags: form.tags.split(',').map((t: string) => t.trim()).filter(Boolean)
+                tags: form.tags.split(',').map((t: string) => t.trim()).filter(Boolean),
+                images: imagesPayload
             });
             alert('บันทึกสำเร็จ');
             onSuccess();
         } catch (e: any) {
+            console.error(e);
             alert(e.message);
         } finally {
             setLoading(false);
@@ -326,40 +386,78 @@ function EditProductModal({ item, onClose, onSuccess }: any) {
 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full space-y-4">
+            <div className="bg-white rounded-lg p-6 max-w-lg w-full space-y-4 max-h-[90vh] overflow-y-auto">
                 <h3 className="font-bold text-lg">แก้ไขสินค้า</h3>
 
-                <div>
-                    <label className="text-sm">ชื่อสินค้า</label>
-                    <Input
-                        value={form.name}
-                        onChange={e => setForm({ ...form, name: e.target.value })}
-                    />
-                    <div className="text-xs text-yellow-600 mt-1">
-                        * การเปลี่ยนชื่อสินค้าอาจมีผลต่อประวัติย้อนหลัง
+                <div className="grid gap-4">
+                    <div>
+                        <label className="text-sm font-medium">รูปภาพสินค้า</label>
+                        <div className="grid grid-cols-4 gap-2 mt-2">
+                            {imageList.map((img, idx) => (
+                                <div key={idx} className="relative group aspect-square border rounded-lg overflow-hidden bg-gray-50">
+                                    <img src={img.url} className="w-full h-full object-cover" />
+                                    <button
+                                        onClick={() => removeImage(idx)}
+                                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        title="ลบรูป"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            ))}
+
+                            {/* Add Button */}
+                            <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 aspect-square">
+                                {processing ? (
+                                    <span className="text-xs text-gray-400">...</span>
+                                ) : (
+                                    <>
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                        </svg>
+                                        <span className="text-[10px] text-gray-400 mt-1">เพิ่มรูป</span>
+                                    </>
+                                )}
+                                <input type="file" multiple accept="image/*" className="hidden" onChange={handleFileSelect} disabled={processing} />
+                            </label>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="text-sm font-medium">ชื่อสินค้า</label>
+                        <Input
+                            value={form.name}
+                            onChange={e => setForm({ ...form, name: e.target.value })}
+                        />
+                        <div className="text-xs text-yellow-600 mt-1">
+                            * การเปลี่ยนชื่อสินค้าอาจมีผลต่อประวัติย้อนหลัง
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="text-sm font-medium">หน่วย</label>
+                        <Input
+                            value={form.unit}
+                            onChange={e => setForm({ ...form, unit: e.target.value })}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="text-sm font-medium">Tags (คั่นด้วย comma)</label>
+                        <Input
+                            value={form.tags}
+                            onChange={e => setForm({ ...form, tags: e.target.value })}
+                            placeholder="เช่น ไฟฟ้า, เครื่องเขียน"
+                        />
                     </div>
                 </div>
 
-                <div>
-                    <label className="text-sm">หน่วย</label>
-                    <Input
-                        value={form.unit}
-                        onChange={e => setForm({ ...form, unit: e.target.value })}
-                    />
-                </div>
-
-                <div>
-                    <label className="text-sm">Tags (คั่นด้วย comma)</label>
-                    <Input
-                        value={form.tags}
-                        onChange={e => setForm({ ...form, tags: e.target.value })}
-                    />
-                </div>
-
-                <div className="flex justify-end gap-2 pt-2">
-                    <Button variant="secondary" onClick={onClose}>ยกเลิก</Button>
-                    <Button onClick={save} disabled={loading}>
-                        {loading ? 'บันทึก...' : 'บันทึก'}
+                <div className="flex justify-end gap-2 pt-4 border-t">
+                    <Button variant="secondary" onClick={onClose} disabled={loading}>ยกเลิก</Button>
+                    <Button onClick={save} disabled={loading || processing}>
+                        {loading ? 'กำลังบันทึก...' : 'บันทึก'}
                     </Button>
                 </div>
             </div>
