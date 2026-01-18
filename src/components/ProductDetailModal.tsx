@@ -56,7 +56,7 @@ export function ProductDetailModal({ product, onClose }: ProductDetailModalProps
                     {/* Close Button */}
                     <button
                         onClick={onClose}
-                        className="absolute top-3 right-3 bg-white/80 hover:bg-white text-gray-700 rounded-full p-2 backdrop-blur transition-all shadow-sm"
+                        className="absolute top-3 right-3 z-20 bg-white/80 hover:bg-white text-gray-700 rounded-full p-2 backdrop-blur transition-all shadow-sm"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
