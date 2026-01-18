@@ -65,16 +65,52 @@ export function ProductDetailModal({ product, onClose }: ProductDetailModalProps
 
                     {/* Image Navigation Dots */}
                     {images.length > 1 && (
-                        <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-2">
-                            {images.map((_, idx) => (
-                                <button
-                                    key={idx}
-                                    onClick={() => setActiveImageIndex(idx)}
-                                    className={`w-2 h-2 rounded-full transition-all ${idx === activeImageIndex ? 'bg-white w-4' : 'bg-white/50 hover:bg-white/80'
-                                        }`}
-                                />
-                            ))}
-                        </div>
+                        <>
+                            {/* Left Arrow */}
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveImageIndex((prev) => (prev - 1 + images.length) % images.length);
+                                }}
+                                className="absolute left-0 top-0 bottom-0 w-16 flex items-center justify-center bg-transparent hover:bg-black/5 transition-colors group"
+                            >
+                                <div className="p-2 bg-white/80 rounded-full shadow-sm group-hover:bg-white text-gray-800">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                    </svg>
+                                </div>
+                            </button>
+
+                            {/* Right Arrow */}
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveImageIndex((prev) => (prev + 1) % images.length);
+                                }}
+                                className="absolute right-0 top-0 bottom-0 w-16 flex items-center justify-center bg-transparent hover:bg-black/5 transition-colors group"
+                            >
+                                <div className="p-2 bg-white/80 rounded-full shadow-sm group-hover:bg-white text-gray-800">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </div>
+                            </button>
+
+                            {/* Dots */}
+                            <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-2 pointer-events-none">
+                                {images.map((_, idx) => (
+                                    <button
+                                        key={idx}
+                                        onClick={(e) => {
+                                            e.stopPropagation(); // Allow dot clicking if we enable pointer-events
+                                            setActiveImageIndex(idx);
+                                        }}
+                                        className={`w-2 h-2 rounded-full transition-all pointer-events-auto ${idx === activeImageIndex ? 'bg-white w-4 shadow' : 'bg-white/50 hover:bg-white/80'
+                                            }`}
+                                    />
+                                ))}
+                            </div>
+                        </>
                     )}
                 </div>
 
