@@ -102,19 +102,11 @@ export default function StockPage() {
               </span>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 border-t pt-3">
-              <div className="flex flex-col items-center justify-center p-2 bg-green-50 rounded-lg">
-                <span className="text-[10px] text-green-700 font-bold uppercase">รับเข้า</span>
-                <span className="font-bold text-gray-700">{x.TOTAL_IN}</span>
-              </div>
-              <div className="flex flex-col items-center justify-center p-2 bg-orange-50 rounded-lg">
-                <span className="text-[10px] text-orange-700 font-bold uppercase">ออก</span>
-                <span className="font-bold text-gray-700">{x.TOTAL_OUT}</span>
-              </div>
-              <div className="flex flex-col items-center justify-center p-2 bg-blue-50 rounded-lg border border-blue-100 shadow-sm">
-                <span className="text-[10px] text-blue-700 font-bold uppercase">คงเหลือ</span>
+            <div className="grid grid-cols-1 gap-2 border-t pt-3">
+              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-100 shadow-sm">
+                <span className="text-sm text-blue-700 font-bold uppercase">คงเหลือ</span>
                 <span
-                  className={`font-black text-xl ${x.BALANCE <= 0 ? 'text-red-600' : 'text-blue-700'
+                  className={`font-black text-2xl ${x.BALANCE <= 0 ? 'text-red-600' : 'text-blue-700'
                     }`}
                 >
                   {x.BALANCE}
@@ -135,8 +127,6 @@ export default function StockPage() {
             <tr>
               <th className="px-4 py-3 text-left">สินค้า</th>
               <th className="px-4 py-3 text-center">หน่วย</th>
-              <th className="px-4 py-3 text-center">รับเข้าทั้งหมด</th>
-              <th className="px-4 py-3 text-center">ออกทั้งหมด</th>
               <th className="px-4 py-3 text-center">คงเหลือรวม</th>
             </tr>
           </thead>
@@ -150,8 +140,6 @@ export default function StockPage() {
               >
                 <td className="px-4 py-3 font-medium text-blue-600">{x.ITEM_NAME}</td>
                 <td className="px-4 py-3 text-center text-gray-500">{x.UNIT}</td>
-                <td className="px-4 py-3 text-center text-gray-500">{x.TOTAL_IN}</td>
-                <td className="px-4 py-3 text-center text-gray-500">{x.TOTAL_OUT}</td>
                 <td
                   className={`px-4 py-3 text-center font-bold text-lg ${x.BALANCE <= 0 ? 'text-red-500' : 'text-green-600'
                     }`}
@@ -163,7 +151,7 @@ export default function StockPage() {
 
             {filtered.length === 0 && !loading && (
               <tr>
-                <td className="px-4 py-6 text-center text-gray-500" colSpan={5}>
+                <td className="px-4 py-6 text-center text-gray-500" colSpan={3}>
                   ไม่พบรายการ
                 </td>
               </tr>
