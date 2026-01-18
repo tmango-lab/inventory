@@ -103,10 +103,10 @@ export default function StockPage() {
             </div>
 
             <div className="grid grid-cols-1 gap-2 border-t pt-3">
-              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-100 shadow-sm">
-                <span className="text-sm text-blue-700 font-bold uppercase">คงเหลือ</span>
+              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-100 shadow-sm">
+                <span className="text-sm text-green-700 font-bold uppercase">คงเหลือ</span>
                 <span
-                  className={`font-black text-2xl ${x.BALANCE <= 0 ? 'text-red-600' : 'text-blue-700'
+                  className={`font-black text-2xl ${x.BALANCE <= 0 ? 'text-red-600' : 'text-green-700'
                     }`}
                 >
                   {x.BALANCE}
