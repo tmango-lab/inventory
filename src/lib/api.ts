@@ -62,6 +62,17 @@ export type BorrowedItem = {
   lastReturnRemark?: string;
 };
 
+// Helper to normalize image data (Legacy Base64 Object vs New URL String)
+export function normalizeImages(images: any[]): string[] {
+  if (!Array.isArray(images)) return [];
+  return images.map((img: any) => {
+    if (typeof img === 'string') return img;
+    // Legacy: { base64: '...' }
+    if (img && img.base64) return `data:${img.mimeType || 'image/jpeg'};base64,${img.base64}`;
+    return '';
+  }).filter(Boolean);
+}
+
 // =========================
 // RECEIVE (IN)
 // =========================
@@ -241,7 +252,10 @@ export async function listReceipts({ search = "", page = 1, limit = 20 }: ListRe
   if (error) throw new Error(error.message);
 
   return {
-    items: data || [],
+    items: (data || []).map((item: any) => ({
+      ...item,
+      images: normalizeImages(item.images)
+    })),
     total: count || 0,
     page,
     limit
@@ -295,7 +309,7 @@ export async function getOutHistory(): Promise<OutHistoryRow[]> {
     zone: row.zone || '',
     channel: row.channel || '',
     remark: row.remark,
-    images: Array.isArray(row.images) ? row.images.map((img: any) => typeof img === 'string' ? img : (img.base64 || '')) : [],
+    images: normalizeImages(row.images),
     type: row.type,
     request_by: row.request_by
   }));
@@ -328,7 +342,7 @@ export async function getAllHistory(filter: HistoryFilterType = 'ALL') {
     zone: row.zone,
     channel: row.channel,
     remark: row.remark,
-    images: Array.isArray(row.images) ? row.images.map((img: any) => typeof img === 'string' ? img : (img.base64 || '')) : [],
+    images: normalizeImages(row.images),
     requestBy: row.request_by
   }));
 }

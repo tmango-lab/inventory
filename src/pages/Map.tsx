@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Input, Button, Textarea } from '../components/UI';
 import { supabase } from '../lib/supabaseClient';
-import { listReceipts, getOutHistory, createOut, type OutHistoryRow } from '../lib/api';
+import { listReceipts, getOutHistory, createOut, normalizeImages, type OutHistoryRow } from '../lib/api';
 import { ProductDetailModal } from '../components/ProductDetailModal';
 
 // ------- Card Components -------
@@ -311,7 +311,7 @@ function SearchPage({
                       onClick={() => setDetailProduct(p)}
                     >
                       <img
-                        src={p.images[0].startsWith('http') ? p.images[0] : `data:image/jpeg;base64,${p.images[0]}`}
+                        src={p.images[0]}
                         alt={p.name}
                         className="w-full h-full object-cover"
                       />
@@ -398,12 +398,10 @@ function MapView({
             {product.images && product.images.length > 0 ? (
               <div
                 className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 border bg-gray-50 cursor-zoom-in hover:opacity-90 transition-opacity"
-                onClick={() => setPreviewImage(
-                  product.images![0].startsWith('http') ? product.images![0] : `data:image/jpeg;base64,${product.images![0]}`
-                )}
+                onClick={() => setPreviewImage(product.images![0])}
               >
                 <img
-                  src={product.images[0].startsWith('http') ? product.images[0] : `data:image/jpeg;base64,${product.images[0]}`}
+                  src={product.images[0]}
                   alt={product.name}
                   className="w-full h-full object-cover"
                 />
@@ -503,7 +501,7 @@ export default function InventorySearchAndMap() {
         productsData.data.forEach((p: any) => {
           masterDataMap.set(p.name, {
             tags: p.tags || [],
-            images: p.images || []
+            images: normalizeImages(p.images)
           });
         });
       }
@@ -529,7 +527,7 @@ export default function InventorySearchAndMap() {
         const key = `${pName.trim()}|${item.zone}|${channelStr}`;
         const existing = stockMap.get(key);
         const qty = Number(item.qty) || 0;
-        const imgs = item.images && Array.isArray(item.images) ? item.images : [];
+        const imgs = normalizeImages(item.images);
 
         if (existing) {
           existing.qty += qty;

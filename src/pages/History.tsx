@@ -301,9 +301,7 @@ const HistoryPage: React.FC = () => {
                         {/* Images */}
                         {x.images && x.images.length > 0 && (
                             <div className="flex gap-2 items-start mt-2 md:mt-0">
-                                {x.images.slice(0, 3).map((b64, i) => {
-                                    const isUrl = b64.startsWith('http') || b64.startsWith('data:');
-                                    const src = isUrl ? b64 : `data:image/jpeg;base64,${b64}`;
+                                {x.images.slice(0, 3).map((src, i) => {
                                     return (
                                         <img
                                             key={i}

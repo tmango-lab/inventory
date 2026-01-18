@@ -24,9 +24,7 @@ export function ProductDetailModal({ product, onClose }: ProductDetailModalProps
     const images = product.images && product.images.length > 0 ? product.images : [];
     const hasImages = images.length > 0;
 
-    const currentImageSrc = hasImages
-        ? (images[activeImageIndex].startsWith('http') ? images[activeImageIndex] : `data:image/jpeg;base64,${images[activeImageIndex]}`)
-        : null;
+    const currentImageSrc = hasImages ? images[activeImageIndex] : null;
 
     const totalQty = product.locations.reduce((acc, loc) => acc + loc.qty, 0);
 

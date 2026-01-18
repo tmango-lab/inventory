@@ -6,7 +6,8 @@ import {
     deleteShelfConfig,
     type ShelfConfig,
     updateProduct,
-    clearExperimentData
+    clearExperimentData,
+    normalizeImages
 } from '../lib/api';
 import { supabase } from '../lib/supabaseClient';
 
@@ -255,7 +256,10 @@ function ProductTab() {
 
     async function fetchProducts() {
         const { data } = await supabase.from('products').select('*').order('name');
-        setProducts(data || []);
+        setProducts((data || []).map((p: any) => ({
+            ...p,
+            images: normalizeImages(p.images)
+        })));
     }
 
     const filtered = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));

@@ -1,0 +1,12 @@
+
+// Helper to normalize image data (Legacy Base64 Object vs New URL String)
+// Used by API mapping and Components that fetch raw data directly (e.g. Map, Settings)
+export function normalizeImages(images: any[]): string[] {
+  if (!Array.isArray(images)) return [];
+  return images.map((img: any) => {
+    if (typeof img === 'string') return img;
+    // Legacy: { base64: '...' }
+    if (img && img.base64) return `data:${img.mimeType || 'image/jpeg'};base64,${img.base64}`;
+    return '';
+  }).filter(Boolean);
+}
