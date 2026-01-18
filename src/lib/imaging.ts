@@ -13,20 +13,27 @@ export type ResizeOptions = {
 };
 
 const defaultOpts: Required<ResizeOptions> = {
-  maxSize: 1600,
+  maxSize: 1200, // Reduce default max size to 1200 for safety
   quality: 0.8,
-  prefer: 'image/webp',
+  prefer: 'image/jpeg', // Force JPEG to ensure quality parameter works (PNG ignores it)
   targetKB: 350,
 };
 
 function pickTypes(prefer: 'image/webp' | 'image/jpeg') {
-  return prefer === 'image/webp' ? ['image/webp', 'image/jpeg'] : ['image/jpeg', 'image/webp'];
+  // Always try JPEG if preferred, or as backup.
+  return prefer === 'image/jpeg' ? ['image/jpeg', 'image/webp'] : ['image/webp', 'image/jpeg'];
 }
 
 async function resizeOne(file: File, opts: Required<ResizeOptions>): Promise<ProcessedImage> {
   const { maxSize, quality, prefer, targetKB } = opts;
 
-  const bitmap = await createImageBitmap(file);
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+  } catch (e) {
+    throw new Error('Could not decode image (createImageBitmap failed)');
+  }
+
   const longSide = Math.max(bitmap.width, bitmap.height);
   const scale = Math.min(maxSize / longSide, 1);
   const w = Math.round(bitmap.width * scale);
@@ -36,43 +43,60 @@ async function resizeOne(file: File, opts: Required<ResizeOptions>): Promise<Pro
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Canvas not supported');
+
+  // White background for transparent images converted to JPEG
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, w, h);
+
   ctx.drawImage(bitmap, 0, 0, w, h);
 
   const candidates = pickTypes(prefer);
 
   let q = quality;
   let blob: Blob | null = null;
-  let typeIdx = 0;
+  let selectedType = '';
 
   const toBlob = (type: string, q: number) =>
     new Promise<Blob>((res, rej) =>
       canvas.toBlob((b) => (b ? res(b) : rej(new Error('toBlob failed'))), type, q)
     );
 
-  while (typeIdx < candidates.length) {
-    blob = await toBlob(candidates[typeIdx], q);
+  // Attempt compression
+  for (const type of candidates) {
+    q = quality; // Reset quality for new type
+    selectedType = type;
 
-    // ลดคุณภาพลงทีละ 0.05 จนกว่าจะ <= targetKB หรือ q ต่ำกว่า 0.45
-    while (blob.size / 1024 > targetKB && q > 0.45) {
-      q -= 0.05;
-      blob = await toBlob(candidates[typeIdx], q);
+    try {
+      blob = await toBlob(type, q);
+
+      // Reduce quality loop
+      while (blob.size / 1024 > targetKB && q > 0.3) {
+        q -= 0.1;
+        blob = await toBlob(type, q);
+      }
+
+      // If satisfy target, break. If not, we still have the last 'blob' (best effort)
+      // If it's way too big (e.g. > 1MB), maybe try next type? 
+      // JPEG is usually good.
+      if (blob) break;
+
+    } catch (e) {
+      continue;
     }
-    if (blob) break;
-    typeIdx += 1;
   }
 
-  if (!blob) throw new Error('No supported image type');
+  if (!blob) throw new Error('No supported image type created');
 
   const out: ProcessedImage = {
     fileName:
       file.name.replace(/\.(jpe?g|png|webp|heic|heif)$/i, '') +
-      (blob.type === 'image/webp' ? '.webp' : '.jpg'),
-    mimeType: blob.type || 'image/jpeg',
+      (selectedType === 'image/webp' ? '.webp' : '.jpg'),
+    mimeType: selectedType || 'image/jpeg',
     width: w,
     height: h,
     bytes: blob.size,
     blob,
-    objectUrl: URL.createObjectURL(blob), // ใช้ใน <img src={...}>
+    objectUrl: URL.createObjectURL(blob),
   };
 
   return out;
