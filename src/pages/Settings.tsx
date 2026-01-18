@@ -12,6 +12,34 @@ import { supabase } from '../lib/supabaseClient';
 
 export default function SettingsPage() {
     const [activeTab, setActiveTab] = useState<'shelf' | 'product' | 'danger'>('shelf');
+    const [isAuthorized, setIsAuthorized] = useState(false);
+    const [password, setPassword] = useState('');
+
+    const handleLogin = () => {
+        if (password === 'ภากร') {
+            setIsAuthorized(true);
+        } else {
+            alert('รหัสผ่านไม่ถูกต้อง');
+            setPassword('');
+        }
+    };
+
+    if (!isAuthorized) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
+                <div className="text-xl font-bold text-gray-700">กรุณาใส่รหัสผ่านเพื่อเข้าใช้งาน</div>
+                <Input
+                    type="password"
+                    placeholder="รหัสผ่าน..."
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="text-center max-w-xs"
+                    onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+                />
+                <Button onClick={handleLogin}>เข้าสู่ระบบ</Button>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -53,22 +81,15 @@ export default function SettingsPage() {
 }
 
 function DangerTab() {
-    const [secret, setSecret] = useState('');
     const [loading, setLoading] = useState(false);
 
     async function handleReset() {
-        if (secret !== 'ภากร') {
-            alert('รหัสลับไม่ถูกต้อง!');
-            return;
-        }
-
         if (!confirm('ยืนยันจริงๆ ใช่ไหม? ข้อมูลสินค้าและประวัติทั้งหมดจะหายไปกู้คืนไม่ได้!')) return;
 
         setLoading(true);
         try {
             await clearExperimentData();
             alert('ล้างข้อมูลเรียบร้อย! ระบบสะอาดเหมือนใหม่');
-            setSecret('');
         } catch (err: any) {
             alert('เกิดข้อผิดพลาด: ' + err.message);
         } finally {
@@ -84,19 +105,6 @@ function DangerTab() {
                 <br />
                 * การตั้งค่าชั้นวางจะยังอยู่
             </p>
-
-            <div className="bg-white p-4 rounded-lg shadow-sm max-w-sm mx-auto space-y-3">
-                <label className="block text-sm font-medium text-gray-700">
-                    พิมพ์รหัสลับเพื่อยืนยัน
-                </label>
-                <Input
-                    type="password" // or text
-                    value={secret}
-                    onChange={e => setSecret(e.target.value)}
-                    placeholder="รหัสลับ..."
-                    className="text-center"
-                />
-            </div>
 
             <Button
                 onClick={handleReset}
