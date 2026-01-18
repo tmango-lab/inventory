@@ -307,7 +307,7 @@ function ProductTab() {
     );
 }
 
-import { processFiles, type ProcessedImage } from '../lib/imaging';
+import { processFiles } from '../lib/imaging';
 
 function EditProductModal({ item, onClose, onSuccess }: any) {
     const [form, setForm] = useState({

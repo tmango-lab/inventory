@@ -120,13 +120,16 @@ export async function uploadReceive(payload: any) {
           blobToUpload = await res.blob();
           filename = item.filename || `image_${i}.jpg`;
         } else if (typeof item === 'string' && item.startsWith('blob:')) {
-          // If it's a blob url, we might need to fetch it? 
-          // Usually processFiles returns objects with .blob. 
-          // If we just pass pure File objects?
-          if (item instanceof File) {
-            blobToUpload = item;
-            filename = item.name;
+          // If it's a blob url, try to fetch it
+          try {
+            const res = await fetch(item);
+            blobToUpload = await res.blob();
+          } catch (e) {
+            console.error('Failed to fetch blob url', item, e);
           }
+        } else if (item instanceof File) {
+          blobToUpload = item;
+          filename = item.name;
         }
 
         if (blobToUpload) {
