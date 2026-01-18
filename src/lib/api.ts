@@ -295,7 +295,7 @@ export async function getOutHistory(): Promise<OutHistoryRow[]> {
     zone: row.zone || '',
     channel: row.channel || '',
     remark: row.remark,
-    images: Array.isArray(row.images) ? row.images.map((img: any) => img.base64 || '') : [],
+    images: Array.isArray(row.images) ? row.images.map((img: any) => typeof img === 'string' ? img : (img.base64 || '')) : [],
     type: row.type,
     request_by: row.request_by
   }));
@@ -328,7 +328,7 @@ export async function getAllHistory(filter: HistoryFilterType = 'ALL') {
     zone: row.zone,
     channel: row.channel,
     remark: row.remark,
-    images: Array.isArray(row.images) ? row.images.map((img: any) => img.base64 || '') : [],
+    images: Array.isArray(row.images) ? row.images.map((img: any) => typeof img === 'string' ? img : (img.base64 || '')) : [],
     requestBy: row.request_by
   }));
 }
