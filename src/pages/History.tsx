@@ -227,6 +227,11 @@ const HistoryPage: React.FC = () => {
     const [imgOpen, setImgOpen] = useState(false);
     const [images, setImages] = useState<string[]>([]);
 
+    const handleSwitchTab = (newTab: 'ALL' | 'IN' | 'CONSUME' | 'BORROW') => {
+        setLoading(true); // Prevent flash of old data
+        setTab(newTab);
+    };
+
     useEffect(() => {
         loadData();
     }, [tab]);
@@ -419,25 +424,25 @@ const HistoryPage: React.FC = () => {
             {/* Tabs */}
             <div className="flex bg-gray-100 p-1 rounded-lg w-fit max-w-full overflow-x-auto">
                 <button
-                    onClick={() => setTab('ALL')}
+                    onClick={() => handleSwitchTab('ALL')}
                     className={`px-4 py-2 text-sm rounded-md whitespace-nowrap ${tab === 'ALL' ? 'bg-white shadow text-blue-600 font-bold' : 'text-gray-500'}`}
                 >
                     ทั้งหมด
                 </button>
                 <button
-                    onClick={() => setTab('IN')}
+                    onClick={() => handleSwitchTab('IN')}
                     className={`px-4 py-2 text-sm rounded-md whitespace-nowrap ${tab === 'IN' ? 'bg-white shadow text-blue-600 font-bold' : 'text-gray-500'}`}
                 >
                     รับเข้า
                 </button>
                 <button
-                    onClick={() => setTab('CONSUME')}
+                    onClick={() => handleSwitchTab('CONSUME')}
                     className={`px-4 py-2 text-sm rounded-md whitespace-nowrap ${tab === 'CONSUME' ? 'bg-white shadow text-blue-600 font-bold' : 'text-gray-500'}`}
                 >
                     เบิกใช้
                 </button>
                 <button
-                    onClick={() => setTab('BORROW')}
+                    onClick={() => handleSwitchTab('BORROW')}
                     className={`px-4 py-2 text-sm rounded-md whitespace-nowrap ${tab === 'BORROW' ? 'bg-white shadow text-blue-600 font-bold' : 'text-gray-500'}`}
                 >
                     ยืม/คืน
