@@ -313,7 +313,7 @@ function EditProductModal({ item, onClose, onSuccess }: any) {
     const [form, setForm] = useState({
         name: item.name,
         unit: item.unit || '',
-        tags: item.tags ? item.tags.join(', ') : ''
+        tags: item.tags ? item.tags.join(' ') : ''
     });
 
     // Manage images: 
@@ -371,7 +371,7 @@ function EditProductModal({ item, onClose, onSuccess }: any) {
             await updateProduct(item.name, {
                 name: form.name,
                 unit: form.unit,
-                tags: form.tags.split(',').map((t: string) => t.trim()).filter(Boolean),
+                tags: form.tags.split(/\s+/).map((t: string) => t.trim()).filter(Boolean),
                 images: imagesPayload
             });
             alert('บันทึกสำเร็จ');

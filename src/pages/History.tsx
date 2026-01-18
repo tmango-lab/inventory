@@ -301,19 +301,23 @@ const HistoryPage: React.FC = () => {
                         {/* Images */}
                         {x.images && x.images.length > 0 && (
                             <div className="flex gap-2 items-start mt-2 md:mt-0">
-                                {x.images.slice(0, 3).map((b64, i) => (
-                                    <img
-                                        key={i}
-                                        src={b64.startsWith('data:') ? b64 : `data:image/jpeg;base64,${b64}`}
-                                        alt="img"
-                                        className="w-16 h-16 object-cover rounded border cursor-pointer hover:opacity-80"
-                                        onClick={() => {
-                                            setImages(x.images);
-                                            setImgOpen(true);
-                                        }}
-                                        onError={(e) => (e.currentTarget.style.display = 'none')}
-                                    />
-                                ))}
+                                {x.images.slice(0, 3).map((b64, i) => {
+                                    const isUrl = b64.startsWith('http') || b64.startsWith('data:');
+                                    const src = isUrl ? b64 : `data:image/jpeg;base64,${b64}`;
+                                    return (
+                                        <img
+                                            key={i}
+                                            src={src}
+                                            alt="img"
+                                            className="w-16 h-16 object-cover rounded border cursor-pointer hover:opacity-80"
+                                            onClick={() => {
+                                                setImages(x.images);
+                                                setImgOpen(true);
+                                            }}
+                                            onError={(e) => (e.currentTarget.style.display = 'none')}
+                                        />
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
