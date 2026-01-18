@@ -38,6 +38,7 @@ export default function ReceiveIn() {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [previews, setPreviews] = useState<string[]>([]);
   const [similarityMatches, setSimilarityMatches] = useState<ProductCandidate[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Dynamic Shelves
   const [shelves, setShelves] = useState<ShelfConfig[]>([]);
@@ -78,7 +79,9 @@ export default function ReceiveIn() {
 
   const handleSave = async () => {
     if (!validate()) return;
+    if (isSubmitting) return;
 
+    setIsSubmitting(true);
     try {
       const processed = await processFiles(form.images);
 
@@ -124,6 +127,8 @@ export default function ReceiveIn() {
     } catch (err: any) {
       console.error(err);
       alert(`❌ เกิดข้อผิดพลาด: ${err?.message || String(err)}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -333,9 +338,12 @@ export default function ReceiveIn() {
 
       {/* ปุ่มบันทึก */}
       <div className="flex gap-2">
-        <Button onClick={handleSave}>บันทึก</Button>
+        <Button onClick={handleSave} disabled={isSubmitting}>
+          {isSubmitting ? 'กำลังบันทึก...' : 'บันทึก'}
+        </Button>
         <Button
           variant="ghost"
+          disabled={isSubmitting}
           onClick={() =>
             setForm({
               name: '',
