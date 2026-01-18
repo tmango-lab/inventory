@@ -121,7 +121,6 @@ function IssueModal({
               value={requestBy}
               onChange={(e) => setRequestBy(e.target.value)}
               placeholder="ระบุชื่อผู้เบิก..."
-              autoFocus
             />
           </div>
 
