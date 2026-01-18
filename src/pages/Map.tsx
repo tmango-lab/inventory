@@ -489,21 +489,22 @@ export default function InventorySearchAndMap() {
     try {
       setLoading(true);
 
-      // 1. Fetch In, Out and Products (for tags) concurrently
-      // We need 'products' table to get tags.
+      // 1. Fetch In, Out and Products (for tags & master images) concurrently
+      // We need 'products' table to get tags and master images.
       const [receiptsData, outHistory, productsData] = await Promise.all([
         listReceipts({ limit: 1000 }),
         getOutHistory(),
-        supabase.from('products').select('name, tags')
+        supabase.from('products').select('name, tags, images')
       ]);
 
-      // Map: Product Name -> Tags
-      const tagsMap = new Map<string, string[]>();
+      // Map: Product Name -> { tags, images }
+      const masterDataMap = new Map<string, { tags: string[], images: string[] }>();
       if (productsData.data) {
         productsData.data.forEach((p: any) => {
-          if (p.tags && Array.isArray(p.tags)) {
-            tagsMap.set(p.name, p.tags);
-          }
+          masterDataMap.set(p.name, {
+            tags: p.tags || [],
+            images: p.images || []
+          });
         });
       }
 
@@ -522,7 +523,7 @@ export default function InventorySearchAndMap() {
       receiptsData.items.forEach((item: any) => {
         // DB column is 'product_name', not 'name'
         const pName = item.product_name || item.name;
-        if (!pName || !item.zone || item.channel == null) return;
+        if (!pName || !item.zone || !item.channel) return;
 
         const channelStr = String(item.channel); // Convert to string for consistency
         const key = `${pName.trim()}|${item.zone}|${channelStr}`;
@@ -553,10 +554,6 @@ export default function InventorySearchAndMap() {
         const qty = Number(item.qty) || 0;
 
         let adjust = 0;
-        // Logic fix:
-        // 'CONSUME' | 'BORROW' -> Subtract
-        // 'RETURN' -> Add (put back to stock)
-        // 'LOSS' -> Ignore (stock was already subtracted when Borrowed/Consumed)
         if (item.type === 'RETURN') {
           adjust = qty; // Add back
         } else if (item.type === 'LOSS') {
@@ -569,9 +566,6 @@ export default function InventorySearchAndMap() {
         if (existing) {
           existing.qty += adjust;
         } else if (adjust !== 0) {
-          // Only create entry if non-zero impact (e.g. Return without In shouldn't happen but...)
-          // If we return items to a zone that had 0, we should create it.
-          // But normally we subtract. If we add to empty?
           stockMap.set(key, {
             name: item.item_name.trim(),
             zone: item.zone,
@@ -583,7 +577,6 @@ export default function InventorySearchAndMap() {
       });
 
       console.log('StockMap Size:', stockMap.size);
-      console.log('StockMap Entries:', Array.from(stockMap.entries()));
 
       // 3. Group by Product Name
       const productMap = new Map<string, Product>();
@@ -598,23 +591,36 @@ export default function InventorySearchAndMap() {
           unit: entry.unit,
         };
 
+        // Master Data (Tags + Master Images)
+        const master = masterDataMap.get(entry.name) || { tags: [], images: [] };
+
         const existingProd = productMap.get(entry.name);
         if (existingProd) {
           existingProd.locations.push(loc);
+          // Accumulate transaction images
           if (entry.images && entry.images.length > 0) {
-            // Unique images
-            const set = new Set(existingProd.images || []);
-            entry.images.forEach(i => set.add(i));
-            existingProd.images = Array.from(set);
+            entry.images.forEach(i => {
+              if (!existingProd.images?.includes(i)) {
+                existingProd.images?.push(i);
+              }
+            });
           }
         } else {
+          // Initialize with Master Images FIRST
+          const initialImages = [...master.images];
+          if (entry.images) {
+            entry.images.forEach(i => {
+              if (!initialImages.includes(i)) initialImages.push(i);
+            });
+          }
+
           productMap.set(entry.name, {
             id: entry.name,
             name: entry.name,
             img: '',
             locations: [loc],
-            tags: tagsMap.get(entry.name) || [], // Attach tags
-            images: entry.images || []
+            tags: master.tags,
+            images: initialImages
           });
         }
       }
